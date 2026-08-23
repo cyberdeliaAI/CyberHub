@@ -17,6 +17,8 @@ packages.
   collections, model grouping, keyboard selection and safe system-trash delete.
 - **Viewer and Compare**: inspect generation metadata or compare up to four
   images and their settings.
+- **LoRA Info**: inspect local `.safetensors` metadata, training tags, tensor
+  structure and hashes from either the browser computer or the CyberHub host.
 - **Auto Tagger**: create local visual AI tags for Gallery images and search by
   combinations of tags.
 - **Captioner**: generate LoRA-training captions with a local vision-language

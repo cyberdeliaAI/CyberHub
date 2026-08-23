@@ -233,6 +233,7 @@ def module_icon_html(key):
     paths = {
         "gallery": '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="10" r="1.5"/><path d="M21 15l-5-5L5 19"/>',
         "viewer": '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+        "lora_info": '<path d="M8 3c0 5 8 5 8 10s-8 5-8 8"/><path d="M16 3c0 5-8 5-8 10s8 5 8 8"/><path d="M9 7h6"/><path d="M9 17h6"/>',
         "cropper": '<path d="M6 6l12 12"/><path d="M18 6L6 18"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/>',
         "tools": '<rect x="8" y="3" width="8" height="4" rx="1"/><path d="M9 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3"/><path d="M8 12h8"/><path d="M8 16h6"/>',
         "meta_copy_tool": '<path d="M14 3l7 7"/><path d="M5 21l4-1 11-11-3-3L6 17l-1 4z"/><path d="M3 7h7"/>',

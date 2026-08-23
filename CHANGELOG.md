@@ -23,6 +23,21 @@
 
 ### Added
 
+- Added LoRA Info 1.0.3, a read-only Safetensors inspector for embedded model
+  metadata, training settings, tag frequencies, tensor statistics and hashes.
+- LoRA Info supports both network workflows used elsewhere in CyberHub: select
+  a file on the CyberHub computer, or choose/drop a file on the computer running
+  the browser. Browser files send only their Safetensors metadata header to the
+  Hub rather than uploading the full model.
+- The CyberHub computer file browser provides direct shortcuts to Windows drive
+  letters, macOS volumes, Linux mount locations and the Hub user's home folder.
+- Fixed the module route to follow CyberHub's key-based navigation convention,
+  so LoRA Info appears with its own icon in the Modules menu and can be enabled
+  or disabled from Settings. The original hyphenated URL remains available.
+- LoRA Info now accepts trainer metadata containing the non-standard `Infinity`,
+  `-Infinity` and `NaN` constants while always returning browser-compatible JSON.
+- Translated every visible LoRA Info label, message and file-browser action to
+  English.
 - Added the current Civitai `models.json` lookup database to the public source
   repository and release build, so model-name lookup works immediately.
 - Added a manual GitHub Releases update flow in Settings. CyberHub only checks
@@ -70,6 +85,7 @@
 
 ### Version Bump
 
+- LoRA Info: 1.0.3
 - Captioner: 1.4
 - Civitai Browser: 1.1.1-beta
 - Upscaler: 1.1.1-beta

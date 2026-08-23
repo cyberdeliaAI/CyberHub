@@ -14,6 +14,7 @@ A local-first command center for AI image creators. The hub bundles a gallery, a
   - [Gallery](#gallery)
   - [Auto Tagger](#auto-tagger)
   - [Viewer](#viewer)
+  - [LoRA Info](#lora-info)
   - [Library](#library)
   - [Compare](#compare)
   - [Captioner](#captioner)
@@ -414,6 +415,40 @@ thumbnail to avoid excessive memory use; the metadata panel indicates this.
 A single-purpose page. Drop a PNG and see its metadata.
 
 Useful when someone sends you an image and you want to know what prompt produced it without adding the whole folder to your gallery. Drag and drop, paste, or browse via the compact drop bar at the top. The result opens in a **two-column layout** — the preview (sticky) on the left, the parsed metadata on the right — showing prompt, negative, settings, and recognized LoRAs in a clean read-only view. As in the Gallery, Model hash is shown right under Model and VAE hash under VAE. On narrow screens the two columns stack.
+
+---
+
+### LoRA Info
+
+A local, read-only inspector for LoRA files in the Safetensors format. It reads
+the JSON header and tensor descriptions but never loads model weights or runs
+code from the file. Open **LoRA Info** from the Modules menu. Like other
+CyberHub modules, it can be enabled or disabled from the Modules section in
+Settings; restart CyberHub after changing that switch.
+
+Choose the source that matches where the file lives:
+
+- **This computer**: choose or drop a `.safetensors` file from the computer
+  running the browser. The browser reads only the Safetensors header and sends
+  that metadata to CyberHub. The full LoRA is not uploaded, which keeps this
+  practical when CyberHub runs on another PC over the network.
+- **CyberHub computer**: use the built-in server file browser to select a LoRA
+  on the PC running CyberHub. Its location bar shows Windows drive letters,
+  macOS volumes, Linux mount locations and the Hub user's home folder directly.
+  The Hub reads the header itself and can also calculate the full SHA-256 and
+  AutoV2 hash incrementally without loading the complete file into memory.
+
+The result includes the readable model and base-model details, network rank and
+alpha, optimizer and learning rates, epochs and steps, training timestamps,
+aggregated Kohya tag frequencies, tensor groups and datatypes, stored hashes and
+a searchable raw-metadata table. Metadata can be copied or saved as JSON. LoRA
+trainer metadata that contains the non-standard `Infinity`, `-Infinity` or
+`NaN` constants remains readable and is exported as valid JSON strings.
+
+Only `.safetensors` is supported. Legacy `.ckpt` and `.pt` files are not opened,
+because reading their pickle-based contents can execute untrusted code. A
+browser-selected file does not currently receive a full SHA-256 hash,
+because hashing it would require reading the complete model in the browser.
 
 ---
 
