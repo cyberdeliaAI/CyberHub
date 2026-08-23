@@ -9,15 +9,16 @@ picks them up from disk.
 | File | Size | How to obtain |
 |------|------|---------------|
 | `resources/auto_tagger/wd-eva02-large-tagger-v3/model.onnx` and `selected_tags.csv` | ~1.3 GB | Auto Tagger -> Install model. Optional runtime download; not included in release zips. |
-| `resources/civitai/models.json` | ~14 MB | In-app: Settings → Civitai → Update models. |
 | `resources/danbooru/model_fp16.onnx` | ~120 MB | Danbooru auto-tagger model — keep your own copy / re-export from source. |
 | `resources/danbooru/tags.csv` | ~8 MB | Danbooru tag database for the toolkit. |
 | `resources/danbooru/ort*.js`, `*.mjs`, `*.wasm` | ~23 MB | ONNX Runtime Web — fetched on first run by `download_fonts.py` (when the Danbooru module is present). |
 | `resources/upscalers/*.onnx` | varies | ONNX upscaler/detail models for the Upscaler module. Keep these outside git and restore/copy them locally. |
 | `resources/fonts/*.woff2` | small | Fetched on first run by `download_fonts.py`. |
 
-Small data files that **do** stay in git: `resources/danbooru/tags.json`,
-`resources/danbooru/README.txt`, the guide PDFs, and all README/Markdown docs.
+Data files that **do** stay in git include `resources/civitai/models.json`,
+`resources/danbooru/tags.json`, `resources/danbooru/README.txt`, the guide PDFs,
+and all README/Markdown docs. The bundled Civitai database can still be refreshed
+from Settings.
 
 > Reminder: a fresh clone cannot reproduce every release ZIP until the
 > bundled release assets are placed back in the paths above.

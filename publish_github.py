@@ -59,7 +59,6 @@ SOURCE_RESOURCES = [
 
 EXCLUDED_ASSET_HINTS = [
     "resources/auto_tagger/*/model.onnx and selected_tags.csv",
-    "resources/civitai/models.json",
     "resources/fonts/*.woff2 / *.ttf / *.TTF",
     "resources/danbooru/model_fp16.onnx",
     "resources/danbooru/tags.csv",
@@ -83,7 +82,7 @@ LEGACY_FILES = [
 
 def source_files():
     """Return source files while excluding local release-only data assets."""
-    files = [path for path in CORE_FILES if not path.endswith("models.json")]
+    files = list(CORE_FILES)
     for module_name in all_module_names():
         files.extend(module_files(module_name))
     tests_dir = os.path.join(REPO, "tests")

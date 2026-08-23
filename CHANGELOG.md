@@ -23,6 +23,8 @@
 
 ### Added
 
+- Added the current Civitai `models.json` lookup database to the public source
+  repository and release build, so model-name lookup works immediately.
 - Added a manual GitHub Releases update flow in Settings. CyberHub only checks
   after the user clicks **Check for updates**; there is no startup or periodic
   network check.

@@ -19,8 +19,6 @@ cyberdelia.db-wal
 .thumbs/
 
 # ─── Large / downloaded assets (kept out of git) ──────────
-# models.json (~14 MB) is fetched via the in-app Civitai updater.
-resources/civitai/models.json
 # Fonts are downloaded by download_fonts.py on first run.
 resources/fonts/*.woff2
 resources/fonts/*.ttf

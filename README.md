@@ -101,8 +101,9 @@ enabled and use the token URL shown by `docker compose logs cyberhub`. Never add
 This repository contains the complete CyberHub source, including beta module
 source code for collaborative development. Beta modules remain separate from the
 stable installation ZIP. Large or independently downloaded runtime assets are
-intentionally kept out of git, including some ONNX models, the Civitai model
-database and downloaded fonts. See
+intentionally kept out of git, including some ONNX models and downloaded fonts.
+The current Civitai `models.json` lookup database is included and can be updated
+from Settings. See
 [`DATA-ASSETS.md`](DATA-ASSETS.md) when preparing a source checkout or building a
 release.
 
