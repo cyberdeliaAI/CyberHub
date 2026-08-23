@@ -1,0 +1,47 @@
+# ─── Python ───────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ─── CyberHub runtime / local state (never commit) ────────
+# settings.json holds local config: ports, folders, API keys.
+data/
+settings.json
+cyberdelia.db
+cyberdelia.db-shm
+cyberdelia.db-wal
+*.db
+*.db-shm
+*.db-wal
+.thumbs/
+
+# ─── Large / downloaded assets (kept out of git) ──────────
+# models.json (~14 MB) is fetched via the in-app Civitai updater.
+resources/civitai/models.json
+# Fonts are downloaded by download_fonts.py on first run.
+resources/fonts/*.woff2
+resources/fonts/*.ttf
+resources/fonts/*.TTF
+# Danbooru model (~120 MB) exceeds GitHub's 100 MB file limit; tags.csv ~8 MB.
+# Keep these out of git and store them separately (see DATA-ASSETS.md).
+resources/danbooru/*.onnx
+resources/danbooru/*.wasm
+resources/danbooru/*.csv
+resources/danbooru/ort*.js
+resources/danbooru/ort*.mjs
+# Upscaler ONNX models can be large and are runtime assets, not source.
+resources/upscalers/*.onnx
+
+# ─── Editor / OS ──────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# ─── Build output / scratch ───────────────────────────────
+updates/
+*.zip

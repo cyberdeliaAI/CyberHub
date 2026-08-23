@@ -1,0 +1,22 @@
+services:
+  cyberhub:
+    build: .
+    container_name: cyberhub
+    ports:
+      # Localhost only. See the manual before exposing CyberHub to your LAN.
+      - "127.0.0.1:8899:8899"
+    environment:
+      CYBERHUB_DOCKER: "1"
+      CYBERHUB_DATA_DIR: /app/data
+    volumes:
+      - cyberhub_data:/app/data
+      - cyberhub_auto_tagger:/app/resources/auto_tagger/wd-eva02-large-tagger-v3
+      # Mount image folders read-only by default, then add /images/output in
+      # Settings -> Gallery. Change to :rw only when container-side edits are wanted.
+      # - /path/to/your/outputs:/images/output:ro
+    restart: unless-stopped
+    stop_grace_period: 20s
+
+volumes:
+  cyberhub_data:
+  cyberhub_auto_tagger:
