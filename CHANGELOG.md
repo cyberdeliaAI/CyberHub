@@ -86,10 +86,24 @@
 ### Version Bump
 
 - LoRA Info: 1.0.3
-- Captioner: 1.4
+- Captioner: 1.5
 - Civitai Browser: 1.1.1-beta
 - Upscaler: 1.1.1-beta
 - Settings: 1.3.2
+
+## Captioner 1.5 - 28 Aug 2026
+
+### Fixed
+
+- Updating a saved Captioner preset now preserves its Library card type and
+  target, so the preset no longer disappears from the Captioner list.
+- New and updated presets bypass the browser cache and remain selected by their
+  exact card ID, making them visible immediately and handling duplicate titles
+  correctly.
+- Presets previously displaced by the update bug are recovered through their
+  `captioner-preset` Library tag; updating one restores its card type.
+- Partial Prompt Library updates now preserve omitted card fields instead of
+  resetting them to defaults.
 
 ## Gallery 1.2.13 / Settings 1.2.6 - 20 Aug 2026
 

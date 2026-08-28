@@ -5,7 +5,7 @@ from modules.captioner import CaptionerModule, PAGE_BODY
 
 class CaptionerTests(unittest.TestCase):
     def test_module_version(self):
-        self.assertEqual(CaptionerModule.version, "1.4")
+        self.assertEqual(CaptionerModule.version, "1.5")
 
     def test_trigger_prefix_always_uses_comma_and_space(self):
         normalize = CaptionerModule._ensure_trigger_prefix
@@ -26,6 +26,10 @@ class CaptionerTests(unittest.TestCase):
         self.assertIn("!String(img.caption || '').trim()", PAGE_BODY)
         self.assertIn('class="cap-batch-actions"', PAGE_BODY)
         self.assertIn("grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)", PAGE_BODY)
+        self.assertIn("cache: 'no-store'", PAGE_BODY)
+        self.assertIn("type: 'captioner'", PAGE_BODY)
+        self.assertIn("tag=captioner-preset", PAGE_BODY)
+        self.assertIn("const presetMap = new Map()", PAGE_BODY)
 
 
 if __name__ == "__main__":

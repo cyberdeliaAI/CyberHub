@@ -30,12 +30,16 @@ def _attachment_type_for_ext(ext):
     return "file"
 
 
-def _sanitize_card_fields(data):
+def _sanitize_card_fields(data, partial=False):
     """In-place: clamp `type` and `target` to known whitelist; strip unsafe `attachment` value.
-    Returns the same dict for chaining."""
-    if data.get("type") not in CARD_TYPES:
+    When ``partial`` is true, omitted fields are left untouched. Returns the same dict."""
+    if "type" in data and data.get("type") not in CARD_TYPES:
         data["type"] = "generation"
-    if data.get("target") not in CARD_TARGETS:
+    elif not partial and "type" not in data:
+        data["type"] = "generation"
+    if "target" in data and data.get("target") not in CARD_TARGETS:
+        data["target"] = "general"
+    elif not partial and "target" not in data:
         data["target"] = "general"
     att = data.get("attachment", "")
     if att and not _ATTACH_RE.match(att):
@@ -129,7 +133,7 @@ class PromptLibraryDB:
         return card_id
 
     def update_card(self, card_id, data):
-        _sanitize_card_fields(data)
+        _sanitize_card_fields(data, partial=True)
         # If the attachment is being replaced or removed, remember the old one so we can clean up
         old_attachment = None
         if "attachment" in data:

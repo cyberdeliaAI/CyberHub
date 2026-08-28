@@ -24,7 +24,7 @@ Output only the caption text."""
 
 class CaptionerModule(Module):
     name = "Captioner"
-    version = "1.4"
+    version = "1.5"
     icon = "\U0001F4AC"   # 💬
     description = "Caption images using a local Vision Language Model"
     order = 35
@@ -1281,15 +1281,28 @@ async function fetchCaptionerModels() {
 
 /* Saved captioner presets are Library cards with type='captioner'. Built-in
    vision scripts are local defaults; save one as a preset before updating it. */
-async function loadPresets() {
+async function loadPresets(options={}) {
   try {
-    const r = await fetch('/api/library/cards?type=captioner&limit=200');
-    const data = await r.json();
-    state.presets = (data && data.cards) ? data.cards : [];
+    const stamp = Date.now();
+    const responses = await Promise.all([
+      fetch('/api/library/cards?type=captioner&limit=200&_=' + stamp, { cache: 'no-store' }),
+      fetch('/api/library/cards?tag=captioner-preset&limit=200&_=' + stamp, { cache: 'no-store' })
+    ]);
+    if (!responses[0].ok || !responses[1].ok) {
+      throw new Error(`Preset request failed (${responses[0].status}/${responses[1].status})`);
+    }
+    const payloads = await Promise.all(responses.map(response => response.json()));
+    const presetMap = new Map();
+    payloads.forEach(data => (data?.cards || []).forEach(card => {
+      presetMap.set(String(card.id), card);
+    }));
+    state.presets = Array.from(presetMap.values()).sort(
+      (a, b) => Number(b.updated_at || 0) - Number(a.updated_at || 0)
+    );
     const sel = document.getElementById('presetSelect');
     if (!sel) return;
     /* Remember the current selection so a refresh after Save/Update doesn't reset it */
-    const cur = sel.value || 'built:z_image';
+    const cur = options.selectedValue || sel.value || 'built:z_image';
     const visibleBuiltins = BUILTIN_VISION_SCRIPTS.filter(function(p){
       return !p.requiresAutoTagger || state.autoTagger.available;
     });
@@ -1533,11 +1546,7 @@ async function saveAsPreset() {
     const data = await r.json();
     if (data && data.ok) {
       toast('Preset saved', 'success');
-      await loadPresets();
-      /* Auto-select the newly saved card */
-      const sel = document.getElementById('presetSelect');
-      const created = state.presets.find(function(p){ return p.title === title.trim(); });
-      if (created) { sel.value = 'saved:' + created.id; onPresetChange(); }
+      await loadPresets({ selectedValue: 'saved:' + data.id });
     } else {
       toast('Save failed' + (data && data.error ? ': ' + data.error : ''), 'error-toast');
     }
@@ -1552,10 +1561,16 @@ async function updatePreset() {
   const content = (ed.value || '').trim();
   if (!content) { toast('Editor is empty — nothing to update', 'error-toast'); return; }
   if (!confirm('Overwrite preset "' + state.activePreset.title + '"?')) return;
+  const presetId = state.activePreset.id;
   try {
     const r = await fetch('/api/library/card/update', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: state.activePreset.id, content: content })
+      body: JSON.stringify({
+        id: presetId,
+        type: 'captioner',
+        target: state.activePreset.target || 'general',
+        content: content
+      })
     });
     const data = await r.json();
     if (data && data.ok) {
@@ -1564,7 +1579,7 @@ async function updatePreset() {
          even before loadPresets() finishes refreshing. */
       state.activePreset.content = content;
       state.activeOverride = content;
-      await loadPresets();
+      await loadPresets({ selectedValue: 'saved:' + presetId });
     } else { toast('Update failed' + (data && data.error ? ': ' + data.error : ''), 'error-toast'); }
   } catch(e) { toast('Update failed: ' + e, 'error-toast'); }
 }
