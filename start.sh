@@ -55,9 +55,7 @@ if [ ! -x "$VENV_DIR/bin/python" ]; then
     fi
 fi
 
-# Always ensure dependencies are up to date. Do not hide failures: if Pillow,
-# numpy or OpenCV fail to install, the hub should not continue with a broken
-# image stack.
+# Keep base dependencies and the requirements of installed modules up to date.
 echo "[SETUP] Checking Python packages..."
 deps_failed=0
 if ! "$VENV_DIR/bin/python" -m pip install --upgrade pip -q; then
@@ -65,10 +63,21 @@ if ! "$VENV_DIR/bin/python" -m pip install --upgrade pip -q; then
 elif ! "$VENV_DIR/bin/python" -m pip install -q -r requirements.txt; then
     deps_failed=1
 fi
-if [ "$deps_failed" = "0" ] && ! "$VENV_DIR/bin/python" -c "import onnxruntime" >/dev/null 2>&1; then
-    echo "[SETUP] Installing ONNX Runtime CPU fallback..."
-    if ! "$VENV_DIR/bin/python" -m pip install -q "onnxruntime>=1.17"; then
-        deps_failed=1
+if [ "$deps_failed" = "0" ]; then
+    for module_requirements in modules/*/requirements.txt; do
+        [ -f "$module_requirements" ] || continue
+        if ! "$VENV_DIR/bin/python" -m pip install -q -r "$module_requirements"; then
+            deps_failed=1
+            break
+        fi
+    done
+fi
+if [ -d "modules/upscaler" ] || [ -d "modules/gallery_auto_tagger" ]; then
+    if [ "$deps_failed" = "0" ] && ! "$VENV_DIR/bin/python" -c "import onnxruntime" >/dev/null 2>&1; then
+        echo "[SETUP] Installing ONNX Runtime CPU fallback..."
+        if ! "$VENV_DIR/bin/python" -m pip install -q "onnxruntime>=1.17"; then
+            deps_failed=1
+        fi
     fi
 fi
 if [ "$deps_failed" = "0" ] && ! "$VENV_DIR/bin/python" -c "import PIL, requests, send2trash" >/dev/null 2>&1; then

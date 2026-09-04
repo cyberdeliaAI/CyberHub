@@ -6,13 +6,15 @@ CyberHub runs on your own computer. It can index large image libraries, read
 generation metadata, search prompts and models, and provide production tools
 without uploading your images to a cloud service.
 
-CyberHub has one main edition. Stable modules ship together and can be enabled
-or disabled in Settings. Modules still under active development, including the
-Civitai Browser and Upscaler, are published separately as clearly marked beta
-packages.
+CyberHub has one modular edition. The starter download contains Core, Settings,
+Module Manager and Gallery, so it is useful immediately without becoming a
+large all-in-one package. Additional stable and beta modules are installed,
+updated or removed individually from Module Manager.
 
 ## Highlights
 
+- **Module Manager**: manually check the official catalog and choose exactly
+  which stable, beta or community modules to install.
 - **Gallery**: fast folder browsing, metadata filters, search, favorites,
   collections, model grouping, keyboard selection and safe system-trash delete.
 - **Viewer and Compare**: inspect generation metadata or compare up to four
@@ -27,8 +29,8 @@ packages.
 - **Image tools**: Cropper, Amateur Photo, Overlay and metadata copy.
 - **Civitai tools**: maintain model-name metadata and download image collections
   with Civitai Grabber.
-- **Optional beta modules**: Civitai Browser and Upscaler can be installed as
-  separate packages without replacing the complete CyberHub installation.
+- **Independent updates**: Gallery and every optional module can be updated
+  without replacing unrelated parts of CyberHub.
 
 Generation metadata support includes Automatic1111/Forge, ComfyUI, Civitai,
 InvokeAI, NovelAI, SwarmUI, Fooocus variants and Easy Diffusion.
@@ -56,12 +58,12 @@ local URL, then use Settings to add your image folders and configure modules.
 Detailed Linux and manual installation instructions are available in the
 CyberHub manual.
 
-An existing CyberHub installation can be updated from **Settings -> Software
-updates -> Check for updates**. This is always a manual action: CyberHub does
-not contact GitHub at startup or in the background. Downloads come only from
-the official `cyberdeliaAI/CyberHub` GitHub Releases page and are checked
-against their published SHA-256 digest before installation. Existing files are
-backed up and a restart is requested after a successful install.
+Update CyberHub itself from **Settings -> Software updates -> Check for
+updates**. Install or update individual modules from **Module Manager -> Check
+for updates**. Both are always manual actions: CyberHub does not contact GitHub
+at startup or in the background. Downloads are tied to their declared GitHub
+Release repository and checked against a published SHA-256 digest. Existing
+files are backed up and a restart is requested after installation.
 
 You can also extract a complete release over the installation, or use
 **Settings -> Maintenance -> Import update or module ZIP** when working offline.
@@ -100,50 +102,20 @@ enabled and use the token URL shown by `docker compose logs cyberhub`. Never add
 
 ## Source Repository
 
-This repository contains the complete CyberHub source, including beta module
-source code for collaborative development. Beta modules remain separate from the
-stable installation ZIP. Large or independently downloaded runtime assets are
-intentionally kept out of git, including some ONNX models and downloaded fonts.
-The current Civitai `models.json` lookup database is included and can be updated
-from Settings. See
-[`DATA-ASSETS.md`](DATA-ASSETS.md) when preparing a source checkout or building a
-release.
+This repository contains CyberHub Core, Settings and Module Manager. Gallery
+and the optional tools have independent repositories and release versions. The
+starter release combines Core with Gallery for a complete first-run experience.
 
-Build the release files with:
+The central
+[`CyberHub-Registry`](https://github.com/cyberdeliaAI/CyberHub-Registry)
+contains the catalog that Module Manager reads only after the user clicks
+**Check for updates**. Official and community ownership is shown separately
+from stable or beta status.
 
-```bash
-python build_release.py ~/Downloads
-```
-
-The builder creates the stable `cyberhub_v<version>.zip`, separate stable-module
-update ZIPs and `cyberhub-update.json`. Upload the catalog and every ZIP listed
-inside it as assets of the same public GitHub Release. The in-app update check
-cannot read releases from a private repository without credentials.
-
-For a release where an individual module may also be installed on the previous
-Hub version, pass that compatibility floor explicitly, for example:
-
-```bash
-python build_release.py ~/Downloads --version 1.2.6.1 \
-  --module captioner --module-min-hub 1.2.6
-```
-
-The resulting release still contains the cumulative stable CyberHub ZIP, but
-only adds a separate Captioner ZIP. Repeat `--module` for every independently
-installable module changed in that release. Use `--no-module-updates` when only
-the main ZIP should be published.
-
-Beta modules are never added to the main ZIP automatically. Build their manual
-import packages explicitly, for example:
-
-```bash
-python build_release.py ~/Downloads --version 1.1.1-beta --modules-only \
-  --module civitai_browser --module upscaler --module-min-hub 1.2.6
-```
-
-This produces separate Browser and Upscaler ZIPs. Install either package from
-**Settings -> Maintenance -> Import update or module ZIP**, then restart
-CyberHub.
+Large or downloaded runtime assets are intentionally kept out of source control,
+including some ONNX models and downloaded fonts. The current Civitai
+`models.json` lookup database is included in the starter and can be updated from
+Settings. See [`DATA-ASSETS.md`](DATA-ASSETS.md) for details.
 
 ## Manual
 

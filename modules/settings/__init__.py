@@ -80,7 +80,7 @@ class _GitHubRedirectHandler(HTTPRedirectHandler):
 
 class SettingsModule(Module):
     name = "Settings"
-    version = "1.3.2"
+    version = "1.4.0"
     icon = "\u2699"   # ⚙
     description = "Configure the hub and individual modules."
     show_in_tabs = False     # gear icon in topbar handles navigation
@@ -329,7 +329,8 @@ class SettingsModule(Module):
                 "description": getattr(source, "description", ""),
                 "order": getattr(source, "order", 100),
                 "show_in_tabs": getattr(source, "show_in_tabs", True),
-                "enabled": self.hub.settings.is_module_enabled(key),
+                "enabled": key in {"settings", "module_manager"} or self.hub.settings.is_module_enabled(key),
+                "protected": key in {"settings", "module_manager"},
                 "loaded": loaded_mod is not None,
                 "settings_schema": getattr(source, "settings_schema", {}),
                 "current_settings": self.hub.settings.get_module(key),
@@ -408,8 +409,8 @@ class SettingsModule(Module):
         if data is None:
             handler.respond_json({"error": "Invalid JSON"}, status=400); return
         module_key = (data.get("module") or "").strip().lower()
-        if module_key == "settings":
-            handler.respond_json({"error": "Cannot disable Settings"}, status=400); return
+        if module_key in {"settings", "module_manager"}:
+            handler.respond_json({"error": "Cannot disable a CyberHub system module"}, status=400); return
         enabled = bool(data.get("enabled", True))
         self.hub.settings.set_module_setting(module_key, "enabled", enabled)
         handler.respond_json({
@@ -1018,7 +1019,7 @@ class SettingsModule(Module):
             value = json.loads(zf.read(info).decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError, RuntimeError) as exc:
             raise ValueError("CyberHub package manifest is invalid.") from exc
-        if not isinstance(value, dict) or value.get("schema") != 1 or value.get("product") != "CyberHub":
+        if not isinstance(value, dict) or value.get("schema") not in {1, 2} or value.get("product") != "CyberHub":
             raise ValueError("Unsupported CyberHub package manifest.")
         package_type = str(value.get("type") or "")
         package_id = str(value.get("id") or "")
@@ -1035,8 +1036,12 @@ class SettingsModule(Module):
         return {
             "type": package_type,
             "id": package_id,
+            "name": str(value.get("name") or package_id)[:120],
             "version": version,
             "minimum_hub_version": minimum,
+            "repository": str(value.get("repository") or "")[:160],
+            "publisher_type": str(value.get("publisher_type") or "official")[:40],
+            "channel": "beta" if value.get("channel") == "beta" else "stable",
         }
 
     def _validate_online_package_manifest(self, manifest, expected):
@@ -1059,10 +1064,17 @@ class SettingsModule(Module):
             return
         module_id = manifest["id"]
         module_prefix = f"modules/{module_id}/"
+        community_resource_prefix = f"resources/modules/{module_id}/"
         paths = [rel for rel, _info in planned]
         if f"{module_prefix}__init__.py" not in paths:
             raise ValueError(f"Module package is missing {module_prefix}__init__.py.")
         for rel in paths:
+            if manifest.get("publisher_type") == "community":
+                if rel.startswith(module_prefix) or rel.startswith(community_resource_prefix):
+                    continue
+                raise ValueError(
+                    f"Community module {module_id} is not allowed to replace {rel}."
+                )
             if rel.startswith(module_prefix) or rel.startswith(("resources/", "licenses/")):
                 continue
             raise ValueError(
@@ -1141,6 +1153,14 @@ class SettingsModule(Module):
                 raise
         finally:
             shutil.rmtree(tmp_root, ignore_errors=True)
+
+        if manifest and manifest.get("type") == "module" and hasattr(self.hub, "module_store"):
+            self.hub.module_store.record_install(
+                manifest,
+                installed,
+                repository=manifest.get("repository", ""),
+                publisher_type=manifest.get("publisher_type", "official"),
+            )
 
         return {
             "ok": True,
@@ -2542,16 +2562,19 @@ function loadAll() {
             var hasSettings = m.enabled && Object.keys(schema).length > 0;
             var stageBadge = String(m.release_stage || 'stable').toLowerCase() === 'beta'
                 ? '<span class="stage-badge beta">Beta</span>' : '';
+            var protectedBadge = m.protected ? '<span class="stage-badge">System</span>' : '';
+            var toggleHtml = m.protected
+                ? '<span class="version-badge">Always enabled</span>'
+                : '<label class="settings-toggle"><input type="checkbox" ' + checked + ' data-mod-toggle="' + m.key + '"><span class="slider"></span></label>';
             card.innerHTML =
                 '<div class="mc-head" data-acc="' + m.key + '">' +
                     (hasSettings ? '<span class="chevron" id="chev_' + m.key + '" title="Show module settings"><span class="module-expand-icon">&#x25B6;</span><span class="module-expand-text">Settings</span></span>' : '') +
                     '<div class="module-icon">' + (m.icon_html || '') + '</div>' +
                     '<div class="module-info">' +
-                        '<div class="name"><span class="name-text">' + escHtml(m.name) + '</span><span class="version-badge">v' + escHtml(m.version || '1.0') + '</span>' + stageBadge + '</div>' +
+                        '<div class="name"><span class="name-text">' + escHtml(m.name) + '</span><span class="version-badge">v' + escHtml(m.version || '1.0') + '</span>' + stageBadge + protectedBadge + '</div>' +
                         '<div class="desc">' + escHtml(m.description || '') + '</div>' +
                     '</div>' +
-                '</div>' +
-                '<label class="settings-toggle"><input type="checkbox" ' + checked + ' data-mod-toggle="' + m.key + '"><span class="slider"></span></label>';
+                '</div>' + toggleHtml;
 
             var wrapper = document.createElement('div');
             wrapper.style.marginBottom = '4px';

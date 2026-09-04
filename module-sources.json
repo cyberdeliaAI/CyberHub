@@ -1,0 +1,184 @@
+{
+  "schema": 1,
+  "product": "CyberHub",
+  "registry_repository": "cyberdeliaAI/CyberHub-Registry",
+  "modules": [
+    {
+      "id": "gallery",
+      "name": "Gallery",
+      "summary": "Browse, search and manage local AI image collections.",
+      "repository": "cyberdeliaAI/CyberHub-Gallery",
+      "publisher_type": "official",
+      "channel": "stable",
+      "bundled_default": true,
+      "dependencies": [],
+      "python_dependencies": ["Pillow>=9.0", "send2trash>=1.8", "watchdog>=4.0"],
+      "resources": []
+    },
+    {
+      "id": "viewer",
+      "name": "Viewer",
+      "summary": "Open an image and inspect its generation metadata.",
+      "repository": "cyberdeliaAI/CyberHub-Viewer",
+      "publisher_type": "official",
+      "channel": "stable",
+      "dependencies": [],
+      "python_dependencies": ["Pillow>=9.0"],
+      "resources": []
+    },
+    {
+      "id": "compare",
+      "name": "Compare",
+      "summary": "Compare images side by side with a metadata difference view.",
+      "repository": "cyberdeliaAI/CyberHub-Compare",
+      "publisher_type": "official",
+      "channel": "stable",
+      "dependencies": ["gallery"],
+      "python_dependencies": [],
+      "resources": []
+    },
+    {
+      "id": "captioner",
+      "name": "Captioner",
+      "summary": "Create local image captions with an OpenAI-compatible vision model.",
+      "repository": "cyberdeliaAI/CyberHub-Captioner",
+      "publisher_type": "official",
+      "channel": "stable",
+      "dependencies": [],
+      "python_dependencies": ["requests>=2.28"],
+      "resources": []
+    },
+    {
+      "id": "gallery_auto_tagger",
+      "name": "Auto Tagger",
+      "summary": "Add searchable visual AI tags to Gallery images with WD-EVA02.",
+      "repository": "cyberdeliaAI/CyberHub-Auto-Tagger",
+      "publisher_type": "official",
+      "channel": "stable",
+      "dependencies": ["gallery"],
+      "python_dependencies": ["Pillow>=9.0", "numpy>=1.24"],
+      "resources": ["resources/auto_tagger/README.txt"]
+    },
+    {
+      "id": "lora_info",
+      "name": "LoRA Info",
+      "summary": "Inspect LoRA Safetensors metadata, training tags, tensors and hashes.",
+      "repository": "cyberdeliaAI/CyberHub-LoRA-Info",
+      "publisher_type": "official",
+      "channel": "stable",
+      "dependencies": [],
+      "python_dependencies": [],
+      "resources": []
+    },
+    {
+      "id": "civitai_browser",
+      "name": "Civitai Browser",
+      "summary": "Browse Civitai models and download selected model files locally.",
+      "repository": "cyberdeliaAI/CyberHub-Civitai-Browser",
+      "publisher_type": "official",
+      "channel": "beta",
+      "dependencies": [],
+      "python_dependencies": ["requests>=2.28"],
+      "resources": []
+    },
+    {
+      "id": "civitai_grabber",
+      "name": "Civitai Grabber",
+      "summary": "Download Civitai images by creator, model, tag or model version.",
+      "repository": "cyberdeliaAI/CyberHub-Civitai-Grabber",
+      "publisher_type": "official",
+      "channel": "stable",
+      "dependencies": [],
+      "python_dependencies": ["httpx[http2]>=0.27", "aiofiles>=22.0", "tqdm>=4.66.5", "tenacity>=8.2"],
+      "resources": ["resources/civitai-grabber/civit_image_downloader.py", "resources/civitai-grabber/grabber-requirements.txt"]
+    },
+    {
+      "id": "cropper",
+      "name": "Cropper",
+      "summary": "Crop and resize image datasets with batch navigation and presets.",
+      "repository": "cyberdeliaAI/CyberHub-Cropper",
+      "publisher_type": "official",
+      "channel": "stable",
+      "dependencies": [],
+      "python_dependencies": ["Pillow>=9.0"],
+      "resources": []
+    },
+    {
+      "id": "danbooru",
+      "name": "Danbooru",
+      "summary": "Find Danbooru tags, build prompts and optionally tag images locally.",
+      "repository": "cyberdeliaAI/CyberHub-Danbooru",
+      "publisher_type": "official",
+      "channel": "stable",
+      "dependencies": [],
+      "python_dependencies": [],
+      "resources": ["resources/danbooru/README.txt", "resources/danbooru/What_is_Danbooru.md", "resources/danbooru/tags.json", "resources/danbooru/tags.csv", "resources/danbooru/model_fp16.onnx", "resources/danbooru/ort.min.js", "resources/danbooru/ort-wasm-simd-threaded.jsep.mjs", "resources/danbooru/ort-wasm-simd-threaded.jsep.wasm", "resources/guides/Illustrious_NoobAI_Prompting_Master_Guide.pdf", "resources/guides/Pony_Prompting_Master_Guide.pdf"]
+    },
+    {
+      "id": "amateur_photo",
+      "name": "Amateur Photo",
+      "summary": "Apply casual phone, film, webcam and snapshot aesthetics.",
+      "repository": "cyberdeliaAI/CyberHub-Amateur-Photo",
+      "publisher_type": "official",
+      "channel": "stable",
+      "dependencies": [],
+      "python_dependencies": ["Pillow>=9.0", "numpy>=1.24", "opencv-python-headless>=4.8"],
+      "resources": []
+    },
+    {
+      "id": "overlay",
+      "name": "Overlay",
+      "summary": "Add labels, metadata captions and watermarks to image batches.",
+      "repository": "cyberdeliaAI/CyberHub-Overlay",
+      "publisher_type": "official",
+      "channel": "stable",
+      "dependencies": [],
+      "python_dependencies": ["Pillow>=9.0"],
+      "resources": []
+    },
+    {
+      "id": "prompt_engineer",
+      "name": "Prompt Engineer",
+      "summary": "Build and rewrite image prompts with a local LM Studio model.",
+      "repository": "cyberdeliaAI/CyberHub-Prompt-Engineer",
+      "publisher_type": "official",
+      "channel": "stable",
+      "dependencies": [],
+      "python_dependencies": ["requests>=2.28"],
+      "resources": ["resources/prompt-engineer/feather.min.js", "resources/prompt-engineer/tailwind.css"]
+    },
+    {
+      "id": "prompt_library",
+      "name": "Prompt Library",
+      "summary": "Save, organize and reuse prompts, presets, snippets and notes.",
+      "repository": "cyberdeliaAI/CyberHub-Prompt-Library",
+      "publisher_type": "official",
+      "channel": "stable",
+      "dependencies": [],
+      "python_dependencies": ["Pillow>=9.0"],
+      "resources": []
+    },
+    {
+      "id": "tools",
+      "name": "Meta Copy Tool",
+      "summary": "Restore source metadata onto upscaled PNG files.",
+      "repository": "cyberdeliaAI/CyberHub-Meta-Copy",
+      "publisher_type": "official",
+      "channel": "stable",
+      "dependencies": [],
+      "python_dependencies": ["Pillow>=9.0"],
+      "resources": []
+    },
+    {
+      "id": "upscaler",
+      "name": "Upscaler",
+      "summary": "Upscale images locally with tiled ONNX Real-ESRGAN models.",
+      "repository": "cyberdeliaAI/CyberHub-Upscaler",
+      "publisher_type": "official",
+      "channel": "beta",
+      "dependencies": [],
+      "python_dependencies": ["Pillow>=9.0", "numpy>=1.24"],
+      "resources": ["resources/upscalers/Real-ESRGAN-x4plus.onnx"]
+    }
+  ]
+}

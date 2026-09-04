@@ -35,14 +35,23 @@ if errorlevel 1 goto bad_venv
 echo [SETUP] Using Python:
 ".venv\Scripts\python.exe" -c "import sys; print('        ' + sys.executable); print('        ' + sys.version.split()[0])"
 
-:: Always ensure dependencies are up to date. Do not hide failures: if Pillow,
-:: numpy or OpenCV fail to install, the hub should not continue with a broken
-:: image stack.
+:: Keep base dependencies and the requirements of installed modules up to date.
 echo [SETUP] Checking Python packages...
 ".venv\Scripts\python.exe" -m pip install --upgrade pip -q
 if errorlevel 1 goto deps_failed
 ".venv\Scripts\python.exe" -m pip install -q -r requirements.txt
 if errorlevel 1 goto deps_failed
+for /d %%M in ("modules\*") do (
+    if exist "%%~fM\requirements.txt" (
+        ".venv\Scripts\python.exe" -m pip install -q -r "%%~fM\requirements.txt"
+        if errorlevel 1 goto deps_failed
+    )
+)
+if exist "modules\upscaler\__init__.py" goto ensure_onnx
+if exist "modules\gallery_auto_tagger\__init__.py" goto ensure_onnx
+goto verify_deps
+
+:ensure_onnx
 :: Keep an existing CUDA/DirectML/CoreML runtime. Install CPU only when no ONNX
 :: Runtime variant is importable yet.
 ".venv\Scripts\python.exe" -c "import onnxruntime" >nul 2>&1
@@ -51,6 +60,8 @@ if errorlevel 1 (
     ".venv\Scripts\python.exe" -m pip install -q "onnxruntime>=1.17"
     if errorlevel 1 goto deps_failed
 )
+
+:verify_deps
 ".venv\Scripts\python.exe" -c "import PIL, requests, send2trash" >nul 2>&1
 if errorlevel 1 goto deps_failed
 goto deps_ok

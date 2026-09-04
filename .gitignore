@@ -10,6 +10,7 @@ env/
 # settings.json holds local config: ports, folders, API keys.
 data/
 settings.json
+installed-modules.json
 cyberdelia.db
 cyberdelia.db-shm
 cyberdelia.db-wal

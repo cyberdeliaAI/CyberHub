@@ -14,6 +14,7 @@ __pycache__
 .thumbs
 data
 settings.json
+installed-modules.json
 updates
 *.zip
 .DS_Store

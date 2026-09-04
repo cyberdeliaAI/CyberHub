@@ -1,10 +1,45 @@
 # Changelog
 
-## Unreleased - Unified CyberHub Edition
+## CyberHub 1.3.0 - Modular Architecture
+
+### Added
+
+- Added the protected Module Manager with separate Installed, Official, Beta
+  and Community views.
+- Added manual per-module install, update and removal from independent GitHub
+  repositories.
+- Added a verified central registry with repository, version, dependency, size
+  and SHA-256 information for every package.
+- Added installed-file ownership records and uninstall backups. Module settings
+  and user data are preserved by default.
+- Added separate repository and release-package generation for Gallery and all
+  optional modules.
 
 ### Changed
 
-- CyberHub now has one main edition containing the stable modules.
+- CyberHub now has one modular edition. The starter contains Core, Settings,
+  Module Manager and Gallery.
+- Gallery remains included for new users but is independently versioned and can
+  receive its own updates.
+- Civitai Browser and Upscaler remain official beta modules and are installed
+  separately.
+- Update checks remain fully manual. CyberHub does not contact GitHub at startup
+  or in the background.
+
+### Security
+
+- Official packages must use GitHub Release assets in the declared Cyberdelia
+  repository and match their catalog checksum and size.
+- Community packages are confined to their own module and namespaced resource
+  folders and show an executable-code warning before installation.
+- Settings and Module Manager cannot be disabled or removed.
+
+## Pre-1.3 Development Changes
+
+### Changed
+
+- CyberHub moved from separate Lite and Full editions to one product in
+  preparation for the modular 1.3 architecture.
 - Civitai Browser and Upscaler are now clearly marked beta modules and are
   distributed as separate import packages instead of being bundled in the main
   CyberHub release.

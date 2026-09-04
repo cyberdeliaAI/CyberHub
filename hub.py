@@ -29,6 +29,7 @@ sys.path.insert(0, HERE)
 
 from core import ModuleRegistry, available_module_classes, module_key_from_class
 from core.civitai import CivitaiLookup
+from core.module_store import ModuleStore
 from core.server import Settings, HubHandler, ThreadedHTTPServer
 
 RESOURCES_DIR = os.path.join(HERE, "resources")
@@ -91,7 +92,7 @@ class Hub:
     lookup through this object.
     """
 
-    VERSION = "1.2.6"
+    VERSION = "1.3.0"
 
     # Subdirectories under resources/ that should always exist. Modules can
     # rely on these being present even if the user wipes the folder.
@@ -105,6 +106,7 @@ class Hub:
         self.civitai = CivitaiLookup()
         self.resources_dir = RESOURCES_DIR
         self.data_dir = DATA_DIR
+        self.module_store = ModuleStore(HERE, DATA_DIR)
         # Compatibility alias for modules contributed against the Docker PR.
         self.settings_dir = DATA_DIR
         self.is_container = os.environ.get("CYBERHUB_DOCKER", "").lower() in {
@@ -147,13 +149,17 @@ class Hub:
 def load_modules(hub):
     """Import every module folder; register the ones that are enabled.
 
-    Settings module is always enabled — otherwise the user couldn't
-    re-enable anything they disabled by mistake.
+    Settings and Module Manager are always enabled so the installation can
+    always be configured and repaired.
     """
     for name, cls in available_module_classes():
         key = module_key_from_class(cls)
         version = getattr(cls, "version", "1.0")
-        if key != "settings" and not hub.settings.is_module_enabled(key):
+        release_stage = getattr(cls, "release_stage", "stable")
+        hub.module_store.adopt(
+            name, name=getattr(cls, "name", name), version=version, channel=release_stage,
+        )
+        if key not in {"settings", "module_manager"} and not hub.settings.is_module_enabled(key):
             print(f"[MODULE] {cls.name} v{version}: disabled")
             continue
 

@@ -1,24 +1,8 @@
-# CyberHub — Python dependencies
-# Core
+# CyberHub base + bundled Gallery dependencies
 Pillow>=9.0
-
-# Recommended
 send2trash>=1.8
 requests>=2.28
 watchdog>=4.0
 
-# Amateur Photo Studio module (optional — skip if you don't need filters)
-numpy>=1.24
-opencv-python-headless>=4.8
-
-# ONNX Runtime for Upscaler / Auto Tagger is selected by the launcher. It
-# installs the CPU package only when no CPU, CoreML, DirectML or CUDA variant is
-# already present. This keeps a manually installed onnxruntime-gpu persistent.
-
-# Civitai Image Grabber module (optional — skip if you don't grab from Civitai)
-# Mirrors resources/civitai-grabber/grabber-requirements.txt so the start
-# scripts install these automatically.
-httpx[http2]>=0.27
-aiofiles>=22.0
-tqdm>=4.66.5
-tenacity>=8.2
+# Optional modules carry modules/<id>/requirements.txt. The start scripts read
+# those files only after the user has installed that module.

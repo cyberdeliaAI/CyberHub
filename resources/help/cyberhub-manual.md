@@ -1,6 +1,6 @@
 # CyberHub: User Manual
 
-A local-first command center for AI image creators. The hub bundles a gallery, a prompt library, an image captioner, a Civitai downloader, and a dozen other tools into one place that runs on your own machine.
+A local-first command center for AI image creators. The starter includes Gallery and lets you add only the independent tools you want through Module Manager.
 
 ---
 
@@ -11,6 +11,7 @@ A local-first command center for AI image creators. The hub bundles a gallery, a
 - [First launch](#first-launch)
 - [The interface at a glance](#the-interface-at-a-glance)
 - [Modules](#modules)
+  - [Module Manager](#module-manager)
   - [Gallery](#gallery)
   - [Auto Tagger](#auto-tagger)
   - [Viewer](#viewer)
@@ -51,12 +52,13 @@ It's built for people who:
 - Download reference images from Civitai by username, model or tag
 - Compare A/B test images to understand what changed between renders
 
-The hub is **modular**. Every feature is a self-contained module that loads at startup. You can disable the ones you don't use from Settings and they simply won't appear in the top bar.
+The hub is **modular**. The starter contains Core, Settings, Module Manager and
+Gallery. Gallery is also independently versioned, while all other tools can be
+installed, updated, disabled or removed separately.
 
-CyberHub has one main edition, so there is no separate Lite or Full installation
-to choose between. Stable modules are included in the main release. Modules that
-are still under active development can be published separately as beta packages
-and imported without replacing the main installation.
+CyberHub has one edition, so there is no Lite or Full choice. Open Module
+Manager and manually load the current catalog when you want to add a stable,
+beta or community module. CyberHub never checks for updates in the background.
 
 ---
 
@@ -152,8 +154,9 @@ The filename is `hub.py`, not `hub.ph`. If `python3 -m venv .venv` fails on
 Debian/Ubuntu, install `python3-venv` as shown above. If you prefer to create
 `venv/` instead of `.venv/`, `start.sh` will also recognize and reuse it.
 
-The launcher additionally installs a CPU ONNX Runtime fallback when needed by
-Upscaler or Auto Tagger. For a completely manual installation, add:
+After you install Upscaler or Auto Tagger, the launcher adds a CPU ONNX Runtime
+fallback only when no CPU or GPU runtime is already available. For a completely
+manual installation, add:
 
 ```bash
 python -m pip install "onnxruntime>=1.17"
@@ -227,19 +230,42 @@ an editing or delete action on a writable folder.
 Every page shares the same top bar:
 
 ```
-[≡ menu]   [active module icon + name]    CyberHub     [⚙ Settings]
+[menu]   [active module icon + name]    CyberHub     [Settings]
 ```
 
-- **Hamburger menu (≡)**: full module list, even modules hidden from the top bar
+- **Hamburger menu**: full module list, even modules hidden from the top bar
 - **Top bar buttons**: modules with `show_in_tabs=True` (most of them)
 - **CyberHub**: clicking the title takes you to the Gallery
-- **Gear (⚙)**: Settings
+- **Settings button**: Settings
 
 Modules are loaded automatically from `modules/<name>/__init__.py`. Disabling one in Settings takes effect after a restart.
 
 ---
 
 ## Modules
+
+### Module Manager
+
+Module Manager controls the optional parts of CyberHub. The starter already
+contains Gallery; all other user-facing modules are separate packages.
+
+- **Installed** shows modules currently present in the CyberHub folder.
+- **Official** shows stable modules maintained by Cyberdelia.
+- **Beta** shows modules still under active development.
+- **Community** is reserved for third-party modules accepted into the catalog.
+- **Check for updates** is the only action that contacts the GitHub registry.
+  Opening CyberHub does not perform a check.
+- **Install** and **Update** download one verified module package, check its
+  repository, size and SHA-256 checksum, and create a backup before replacing
+  files.
+- **Remove** deletes only files registered as owned by that module. Module
+  settings and user data are preserved, and a backup is retained.
+
+Settings and Module Manager are protected system modules. They cannot be
+disabled or removed. Python modules contain executable code, so community
+modules show an additional warning before installation.
+
+Restart CyberHub after installing, updating or removing a module.
 
 ### Gallery
 
@@ -773,10 +799,9 @@ Only one grabber job runs at a time. Start a second one and you'll see "already 
 
 Browse Civitai models inside the hub without needing Forge or Gradio. This is for model discovery and version inspection; use Civitai Grabber when you want reference images.
 
-**Beta module:** Civitai Browser 1.1.1-beta is distributed separately from the
-main CyberHub ZIP. Install its module ZIP from **Settings -> Maintenance ->
-Import update or module ZIP**, then restart CyberHub. The beta label and version
-remain visible in Settings after installation.
+**Beta module:** install or update Civitai Browser from **Module Manager**. You
+can also import its release ZIP through **Settings -> Maintenance** when working
+offline. Restart CyberHub afterwards.
 
 **What it does**
 
@@ -831,7 +856,8 @@ Apply "realistic imperfection" filters: grain, noise, slight blur, vignetting, J
 - Batch mode for whole folders
 - Your input and output folder choices are remembered across restarts
 
-Requires `numpy` and `opencv-python-headless`. Installed by default but optional if you don't use this module.
+Requires `numpy` and `opencv-python-headless`. These are installed after you add
+the module and restart CyberHub.
 
 ---
 
@@ -839,9 +865,9 @@ Requires `numpy` and `opencv-python-headless`. Installed by default but optional
 
 Neural image upscaling with ONNX Real-ESRGAN / ESRGAN models.
 
-**Beta module:** Upscaler 1.1.1-beta is distributed separately from the main
-CyberHub ZIP. Install its module ZIP from **Settings -> Maintenance -> Import
-update or module ZIP**, then restart CyberHub.
+**Beta module:** install or update Upscaler from **Module Manager**. You can also
+import its release ZIP through **Settings -> Maintenance** when working offline.
+Restart CyberHub afterwards.
 
 - **Single image queue**: drop or choose one or more images. The queue shows thumbnails or a compact list, with status per image. CyberHub processes them one at a time. One image downloads back to your browser; multiple queued images are saved automatically to the Upscaler output folder when one is configured.
 - **Folder batch**: choose an input folder and optional output folder on the Hub machine. Results use the configured suffix, default `_upscaled`.
@@ -913,14 +939,15 @@ Where everything is configured.
 **Software updates**
 
 - **Check for updates** contacts the official CyberHub GitHub Releases page and
-  shows complete Hub or individual module updates that are newer than the
-  installed versions.
+  shows updates for CyberHub Core and its protected system modules.
 - Update checks are always manual. Opening CyberHub or Settings never contacts
   GitHub and there is no periodic background check.
-- Click **Install update** or **Install module** to download the selected
-  package. CyberHub shows download and installation progress, verifies the
+- Click **Install update** to download the selected package. CyberHub shows
+  download and installation progress, verifies the
   published SHA-256 digest, validates the package contents and backs up replaced
   files before installation.
+- Use **Module Manager** for Gallery and all optional module updates. It also
+  requires a manual check and uses the same verified installation process.
 - Restart CyberHub when the update completes. Personal settings, the Gallery
   database, thumbnails and downloaded model files are not included in normal
   update packages.
@@ -1059,7 +1086,7 @@ The hub then serves these from its own static routes and never reaches out to a 
 - The Prompt Engineer's Tailwind CSS (pre-built, in `resources/prompt-engineer/tailwind.css`)
 - Feather icons (in `resources/prompt-engineer/feather.min.js`)
 - All hub HTML, CSS and JS
-- The Civitai grabber script
+- The Civitai grabber script in the Civitai Grabber module package
 
 **Per-module external connections**
 
@@ -1190,7 +1217,10 @@ Settings → expand **System diagnostics** → **📋 Copy as text** → share t
 - **Compare doesn't need adjacent images**. Ctrl+Click any 2-4 images from anywhere in your gallery. They don't have to be near each other in time or folder.
 - **Captioner preset workflow**. Keep one preset per model family you train for. Pick from the dropdown before each batch run.
 - **Restart vs reload**. Restart picks up port/folder/module changes. A browser reload picks up CSS/JS changes only.
-- **Prompting reference PDFs**. The distribution includes `resources/guides/Pony_Prompting_Master_Guide.pdf` and `resources/guides/Illustrious_NoobAI_Prompting_Master_Guide.pdf` as standalone examples/reference docs. You can also attach them to Prompt Library cards when you want them grouped with a specific model family or workflow.
+- **Prompting reference PDFs**. The Danbooru module package includes
+  `resources/guides/Pony_Prompting_Master_Guide.pdf` and
+  `resources/guides/Illustrious_NoobAI_Prompting_Master_Guide.pdf` as standalone
+  reference documents.
 
 ### Performance
 

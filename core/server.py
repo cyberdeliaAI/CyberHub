@@ -250,6 +250,7 @@ def module_icon_html(key):
         "amateur-photo": '<path d="M4 8h4l2-3h4l2 3h4v11H4V8z"/><circle cx="12" cy="14" r="4"/>',
         "amateur_photo": '<path d="M4 8h4l2-3h4l2 3h4v11H4V8z"/><circle cx="12" cy="14" r="4"/>',
         "compare": '<circle cx="9" cy="9" r="5"/><circle cx="15" cy="15" r="5"/>',
+        "module_manager": '<rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="15" width="7" height="6" rx="1"/><path d="M14 18h7M17.5 14.5v7"/>',
         "settings": '<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.3 3a7 7 0 0 0-1.7 1l-2.4-1-2 3.5L5.1 11a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 1.7 1l.3 3h5l.3-3a7 7 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5c.1-.3.1-.7.1-1z"/>',
     }
     body = paths.get(key, '<circle cx="12" cy="12" r="4"/>')
