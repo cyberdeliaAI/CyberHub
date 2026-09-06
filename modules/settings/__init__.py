@@ -80,7 +80,7 @@ class _GitHubRedirectHandler(HTTPRedirectHandler):
 
 class SettingsModule(Module):
     name = "Settings"
-    version = "1.4.0"
+    version = "1.4.1"
     icon = "\u2699"   # ⚙
     description = "Configure the hub and individual modules."
     show_in_tabs = False     # gear icon in topbar handles navigation
@@ -1600,12 +1600,15 @@ SETTINGS_BODY = r"""
 
 .module-card { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
 .module-card:last-child { border-bottom:none; }
-.module-card .mc-head { display:flex; align-items:center; gap:12px; flex:1; min-width:0; cursor:pointer; }
-.module-card .chevron { display:inline-flex; align-items:center; gap:5px; min-width:76px; height:28px; padding:0 8px; border:1px solid var(--border-light); border-radius:var(--radius); background:var(--bg-card); color:var(--text-dim); font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; transition:all .15s; flex-shrink:0; }
+.module-card .mc-head { display:flex; align-items:center; gap:12px; flex:1; min-width:0; }
+.module-actions { display:grid; grid-template-columns:minmax(92px,max-content) 84px; align-items:center; justify-content:end; gap:8px; flex-shrink:0; }
+.module-toggle-slot, .module-settings-slot { display:flex; align-items:center; justify-content:flex-end; min-width:0; }
+.module-settings-slot { width:84px; }
+.module-card .chevron { display:inline-flex; align-items:center; justify-content:center; gap:5px; width:84px; height:28px; padding:0 8px; border:1px solid var(--border-light); border-radius:var(--radius); background:var(--bg-card); color:var(--text-dim); font:inherit; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; transition:all .15s; cursor:pointer; flex-shrink:0; }
 .module-card .chevron .module-expand-icon { display:inline-block; font-size:10px; line-height:1; transition:transform .15s; }
 .module-card .chevron.open { color:var(--accent); border-color:var(--accent-dim); background:var(--accent-glow); }
 .module-card .chevron.open .module-expand-icon { transform:rotate(90deg); }
-.module-card .mc-head:hover .chevron { color:var(--accent); border-color:var(--accent-dim); background:var(--bg-hover); }
+.module-card .chevron:hover { color:var(--accent); border-color:var(--accent-dim); background:var(--bg-hover); }
 .module-icon { width:32px; height:32px; display:flex; align-items:center; justify-content:center; color:var(--text-dim); flex-shrink:0; }
 .module-icon svg { width:18px; height:18px; display:block; }
 .module-info { flex:1; min-width:0; }
@@ -1616,6 +1619,13 @@ SETTINGS_BODY = r"""
 .module-settings { overflow:hidden; max-height:0; opacity:0; transition:max-height .3s ease, opacity .2s ease, padding .2s ease, margin .2s ease; margin-top:0; padding:0 12px; background:var(--bg-card); border:1px solid transparent; border-radius:var(--radius); }
 .module-settings.open { max-height:2000px; opacity:1; padding:12px; margin-top:8px; border-color:var(--border); }
 .module-settings .settings-row { padding:6px 0; }
+
+@media (max-width: 520px) {
+    .module-card { align-items:flex-start; flex-wrap:wrap; }
+    .module-card .mc-head { flex-basis:100%; }
+    .module-actions { width:calc(100% - 44px); margin-left:44px; grid-template-columns:1fr 84px; }
+    .module-toggle-slot { justify-content:flex-start; }
+}
 
 .restart-banner { display:none; align-items:center; justify-content:space-between; gap:14px; background:var(--bg-card); border:1px solid var(--orange); border-radius:8px; padding:10px 12px; font-size:12px; color:var(--orange); margin-bottom:16px; scroll-margin-top:64px; }
 .restart-banner.visible { display:flex; }
@@ -2565,16 +2575,22 @@ function loadAll() {
             var protectedBadge = m.protected ? '<span class="stage-badge">System</span>' : '';
             var toggleHtml = m.protected
                 ? '<span class="version-badge">Always enabled</span>'
-                : '<label class="settings-toggle"><input type="checkbox" ' + checked + ' data-mod-toggle="' + m.key + '"><span class="slider"></span></label>';
+                : '<label class="settings-toggle" title="Enable or disable ' + escHtml(m.name) + '"><input type="checkbox" ' + checked + ' data-mod-toggle="' + m.key + '" aria-label="Enable or disable ' + escHtml(m.name) + '"><span class="slider"></span></label>';
+            var settingsHtml = hasSettings
+                ? '<button type="button" class="chevron" id="chev_' + m.key + '" data-acc="' + m.key + '" title="Show module settings" aria-expanded="false"><span class="module-expand-icon">&#x25B6;</span><span class="module-expand-text">Settings</span></button>'
+                : '';
             card.innerHTML =
-                '<div class="mc-head" data-acc="' + m.key + '">' +
-                    (hasSettings ? '<span class="chevron" id="chev_' + m.key + '" title="Show module settings"><span class="module-expand-icon">&#x25B6;</span><span class="module-expand-text">Settings</span></span>' : '') +
+                '<div class="mc-head">' +
                     '<div class="module-icon">' + (m.icon_html || '') + '</div>' +
                     '<div class="module-info">' +
                         '<div class="name"><span class="name-text">' + escHtml(m.name) + '</span><span class="version-badge">v' + escHtml(m.version || '1.0') + '</span>' + stageBadge + protectedBadge + '</div>' +
                         '<div class="desc">' + escHtml(m.description || '') + '</div>' +
                     '</div>' +
-                '</div>' + toggleHtml;
+                '</div>' +
+                '<div class="module-actions">' +
+                    '<div class="module-toggle-slot">' + toggleHtml + '</div>' +
+                    '<div class="module-settings-slot">' + settingsHtml + '</div>' +
+                '</div>';
 
             var wrapper = document.createElement('div');
             wrapper.style.marginBottom = '4px';
@@ -2609,9 +2625,9 @@ function loadAll() {
             });
         });
 
-        // Wire accordion toggle on module headers
-        list.querySelectorAll('.mc-head[data-acc]').forEach(function(head) {
-            head.addEventListener('click', function() {
+        // Only the explicit Settings button opens a module's settings panel.
+        list.querySelectorAll('.chevron[data-acc]').forEach(function(button) {
+            button.addEventListener('click', function() {
                 var key = this.getAttribute('data-acc');
                 var box = document.getElementById('msettings_' + key);
                 var chev = document.getElementById('chev_' + key);
@@ -2622,6 +2638,7 @@ function loadAll() {
                     var nowOpen = box.classList.contains('open');
                     chev.classList.toggle('open', nowOpen);
                     chev.title = nowOpen ? 'Hide module settings' : 'Show module settings';
+                    chev.setAttribute('aria-expanded', nowOpen ? 'true' : 'false');
                     var label = chev.querySelector('.module-expand-text');
                     if (label) label.textContent = nowOpen ? 'Hide' : 'Settings';
                 }

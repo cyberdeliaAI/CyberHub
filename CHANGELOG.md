@@ -1,5 +1,16 @@
 # Changelog
 
+## Settings 1.4.1 - 6 September 2026
+
+### Improved
+
+- Reorganized each module row so its enable/disable control appears before its
+  optional Settings button in one consistently aligned action area.
+- Module settings now open only from the clearly labelled Settings button; the
+  module name and description are no longer hidden click targets.
+- Improved the module controls on narrow screens and added accessible labels
+  and expanded-state information.
+
 ## CyberHub 1.3.0 - Modular Architecture
 
 ### Added
