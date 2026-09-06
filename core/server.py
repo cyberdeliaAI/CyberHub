@@ -322,6 +322,8 @@ def build_module_menu(registry, active_key):
 
     items = []
     for m in tabs:
+        if m.key() in {"settings", "module_manager"}:
+            continue
         cls = "hub-menu-item" + (" active" if m.key() == active_key else "")
         icon = module_icon_html(m.key())
         desc = (m.description or "").strip()
@@ -331,15 +333,26 @@ def build_module_menu(registry, active_key):
             f'{icon}<span><span class="label">{m.name}</span>{desc_html}</span></a>'
         )
     panel_html = "".join(items)
-    # Settings link at the bottom of the panel
+    # Keep this row self-contained: Gallery has its own menu stylesheet.
     set_cls = "hub-menu-item" + (" active" if active_key == "settings" else "")
     panel_html += (
         '<div class="hub-menu-sep"></div>'
+        '<div class="hub-menu-footer" style="grid-column:1 / -1;display:grid;'
+        'grid-template-columns:repeat(2,minmax(0,1fr));gap:4px">'
         f'<a href="/settings" class="{set_cls}">'
         f'{module_icon_html("settings")}'
         '<span><span class="label">Settings</span>'
         '<span class="desc">Configure hub and modules</span></span></a>'
     )
+    if registry.get("module_manager") is not None:
+        manager_cls = "hub-menu-item" + (" active" if active_key == "module_manager" else "")
+        panel_html += (
+            f'<a href="/module_manager" class="{manager_cls}">'
+            f'{module_icon_html("module_manager")}'
+            '<span><span class="label" style="white-space:normal">Module Manager</span>'
+            '<span class="desc">Install and update modules</span></span></a>'
+        )
+    panel_html += '</div>'
 
     active_label = ""
     if active_mod:

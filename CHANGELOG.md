@@ -1,5 +1,16 @@
 # Changelog
 
+## Module Manager 1.0.1 - Unreleased
+
+### Improved
+
+- Moved Module Manager to the menu footer, beside Settings, keeping management
+  tools separate from regular modules.
+- Added a Restart CyberHub button after module installation, updates and removal.
+- Pending restart notices survive page navigation and clear after a server restart.
+- Restart waits for CyberHub to return before reloading, with visible error handling.
+- Module actions and the restart button are disabled while a module operation runs.
+
 ## Settings 1.4.1 - 6 September 2026
 
 ### Improved

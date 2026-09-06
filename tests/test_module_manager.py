@@ -2,9 +2,62 @@ import json
 import os
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 from core.module_store import ModuleStore
 from modules.module_manager import ModuleManagerModule
+from modules.settings import SettingsModule
+
+
+class ModuleRestartTests(unittest.TestCase):
+    def test_install_marks_restart_pending_and_new_process_clears_it(self):
+        with tempfile.TemporaryDirectory() as root:
+            settings = Mock(spec=SettingsModule)
+            settings._install_import_zip.return_value = {"restart_required": True}
+            hub = SimpleNamespace(
+                registry=Mock(), data_path=lambda *parts: os.path.join(root, *parts),
+            )
+            hub.registry.get.return_value = settings
+            module = ModuleManagerModule(hub)
+            self.assertFalse(module._job["restart_required"])
+            item = {"id": "viewer", "name": "Viewer", "version": "1.1",
+                    "download_url": "https://github.com/example/viewer.zip",
+                    "size": 100, "sha256": "a" * 64, "asset": "viewer.zip"}
+            module._install_worker(item)
+            self.assertTrue(module._job["restart_required"])
+            self.assertEqual(module._job["stage"], "done")
+            module._set_job(running=True, stage="starting")
+            self.assertTrue(module._job["restart_required"])
+            settings._read_github_url.side_effect = ValueError("Download failed")
+            module._install_worker(item)
+            self.assertEqual(module._job["stage"], "error")
+            self.assertTrue(module._job["restart_required"])
+            self.assertFalse(ModuleManagerModule(hub)._job["restart_required"])
+
+    def test_remove_requires_restart_only_on_success(self):
+        hub = SimpleNamespace(module_store=Mock())
+        handler = Mock()
+        handler._is_loopback.return_value = True
+        handler.read_body_json.return_value = {"module": "viewer"}
+        module = ModuleManagerModule(hub)
+        hub.module_store.uninstall.side_effect = ValueError("Cannot remove")
+        module._api_remove(handler, 0, "application/json")
+        self.assertFalse(module._job["restart_required"])
+        hub.module_store.uninstall.side_effect = None
+        hub.module_store.uninstall.return_value = {"removed": 1}
+        module._api_remove(handler, 0, "application/json")
+        self.assertTrue(module._job["restart_required"])
+
+    def test_remove_is_blocked_while_installing(self):
+        hub = SimpleNamespace(module_store=Mock())
+        handler = Mock()
+        handler._is_loopback.return_value = True
+        module = ModuleManagerModule(hub)
+        module._set_job(running=True)
+        module._api_remove(handler, 0, "application/json")
+        hub.module_store.uninstall.assert_not_called()
+        self.assertEqual(handler.respond_json.call_args.kwargs["status"], 409)
 
 
 class ModuleStoreTests(unittest.TestCase):

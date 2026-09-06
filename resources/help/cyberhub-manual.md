@@ -248,6 +248,8 @@ Modules are loaded automatically from `modules/<name>/__init__.py`. Disabling on
 
 Module Manager controls the optional parts of CyberHub. The starter already
 contains Gallery; all other user-facing modules are separate packages.
+Open it from the bottom row of the module menu: Settings is on the left and
+Module Manager is on the right.
 
 - **Installed** shows modules currently present in the CyberHub folder.
 - **Official** shows stable modules maintained by Cyberdelia.
@@ -265,7 +267,10 @@ Settings and Module Manager are protected system modules. They cannot be
 disabled or removed. Python modules contain executable code, so community
 modules show an additional warning before installation.
 
-Restart CyberHub after installing, updating or removing a module.
+After installing, updating or removing a module, click **Restart CyberHub** in
+Module Manager. The button waits until module operations finish. Confirm the
+restart when your other tasks are finished; the page reconnects automatically.
+The restart notice remains available when you leave and return to Module Manager.
 
 ### Gallery
 
