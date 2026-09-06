@@ -1,6 +1,8 @@
 # Changelog
 
-## Module Manager 1.0.1 - Unreleased
+## CyberHub 1.3.1 - 6 September 2026
+
+Includes Module Manager 1.0.1. Settings remains 1.4.1 and Gallery remains 1.2.13.
 
 ### Improved
 
