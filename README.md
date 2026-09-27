@@ -73,10 +73,21 @@ the release overwrite flow.
 ## Shared AI connection (1.4.0)
 
 Use **Settings → AI connection** to configure an OpenAI-compatible server such
-as LM Studio or MLX, choose a default model and test the connection. Choose
+as LM Studio or oMLX, choose a default model and test the connection.
+Enter an optional **API key** when the server requires authentication. Leave the
+field blank to keep a saved key; select **Remove saved API key** to delete it.
+Changing the server address clears the old key unless you enter a new one. Choose
 **CyberHub computer** or **Browser computer** explicitly: `localhost` refers to
 that computer. Browser connections require the model server to allow browser
-access. Server addresses with or without `/v1` are accepted.
+access. Server addresses with or without `/v1` are accepted. Keys are stored locally in
+`settings.json`; browser connections receive the key only when making a direct
+request. Hub connections keep it on the CyberHub computer.
+
+The 1.4.0 downloads were revised to add API-key support while keeping the same
+version. If you already installed the earlier 1.4.0, import the current release
+ZIP through **Settings → Maintenance → Import update or module ZIP** and restart.
+Update Captioner to 1.7.1 and Prompt Engineer to 1.3.1 through Module Manager
+for API-key support. Version-based checks do not detect same-version Core revisions.
 
 Captioner 1.7.0 and Prompt Engineer 1.3.0 can select **Central connection**, with
 an optional model override. Existing own connections are preserved; modules

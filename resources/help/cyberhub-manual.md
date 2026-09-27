@@ -580,6 +580,15 @@ without changing the shared server. Leave the model override empty to inherit
 the central model (or the server default for an own connection). Use a
 vision-capable model when sending images.
 
+
+An optional **API key** supports authenticated servers such as oMLX. Leave the
+password field empty to keep the saved key, or select **Remove saved API key**
+and save to clear it. A different server address clears the old key unless a new
+one is entered. Central connections share this key; own connections can have a
+separate key. Keys are stored in the local `settings.json`. Browser connections
+receive the key for direct requests; Hub connections keep it on the Hub computer.
+
+
 Central settings include an OpenAI-compatible backend, server address, default
 model and **Connect from** choice. `localhost` means the CyberHub computer or
 the browser computer, depending on that choice. Use a network address for a

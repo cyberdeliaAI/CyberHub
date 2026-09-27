@@ -24,6 +24,46 @@ def normalize_api_url(value):
     return urlunsplit((parsed.scheme, parsed.netloc, path, "", ""))
 
 
+def api_key_value(data, previous=None):
+    """Omitted keys survive edits only for the same normalized endpoint."""
+    if "api_key" in data:
+        value = data["api_key"]
+        if not isinstance(value, str) or len(value) > 4096:
+            raise ValueError("Invalid API key.")
+        value = value.strip()
+        if any(ord(c) < 33 or ord(c) > 126 for c in value):
+            raise ValueError("API keys cannot contain spaces or control characters.")
+        return value
+    previous = previous or {}
+    def endpoint(value):
+        value = str(value or "").strip().rstrip("/")
+        if value and "://" not in value:
+            value = "http://" + value
+        if value and not value.lower().endswith("/v1"):
+            value += "/v1"
+        return value
+    if endpoint(data.get("api_url")) == endpoint(previous.get("api_url")):
+        return api_key_value({"api_key": previous.get("api_key", "")})
+    return ""
+
+
+def auth_headers(connection):
+    key = api_key_value({"api_key": connection.get("api_key", "")})
+    return {"Authorization": "Bearer " + key} if key else {}
+
+
+def public_connection(value):
+    """Keep credentials out of config responses, including custom/shared backups."""
+    if isinstance(value, list):
+        return [public_connection(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+    result = {key: public_connection(item) for key, item in value.items() if key != "api_key"}
+    if "api_key" in value:
+        result["api_key_set"] = bool(value["api_key"])
+    return result
+
+
 def validate_connection(data, *, allow_auto=False):
     if not isinstance(data, dict):
         raise ValueError("Expected a connection object.")
@@ -37,7 +77,7 @@ def validate_connection(data, *, allow_auto=False):
     if not isinstance(model, str) or len(model) > 512:
         raise ValueError("Invalid model name.")
     return {"backend": backend, "api_url": normalize_api_url(data.get("api_url")),
-            "model": model.strip(), "transport": transport}
+            "model": model.strip(), "transport": transport, "api_key": api_key_value(data)}
 
 
 class AIConnection:
@@ -50,11 +90,16 @@ class AIConnection:
         saved = self.settings.get("ai_connection", {})
         if not saved:
             return {"configured": False, "backend": "openai", "api_url": "",
-                    "model": "", "transport": "hub"}
+                    "model": "", "transport": "hub", "api_key": ""}
         return {"configured": True, **validate_connection(saved)}
 
-    def save(self, data):
+    def draft(self, data):
         connection = validate_connection(data)
+        connection["api_key"] = api_key_value(data, self.settings.get("ai_connection", {}))
+        return connection
+
+    def save(self, data):
+        connection = self.draft(data)
         self.settings.set("ai_connection", connection)
         return self.shared()
 
@@ -72,6 +117,7 @@ class AIConnection:
             "api_url": local.get("api_url") or "http://localhost:1234/v1",
             "model": local.get("model") or "",
             "transport": local.get("transport") or legacy_transport,
+            "api_key": local.get("api_key") or "",
         }
         connection = shared if mode == "shared" else custom
         error = "Save a central AI connection in Settings first." if mode == "shared" and not shared["configured"] else ""
@@ -79,6 +125,7 @@ class AIConnection:
             "central_available": True, "shared": shared, "custom": custom,
             "connection_mode": mode, "connection_error": error,
             "api_url": connection["api_url"], "transport": connection["transport"],
+            "api_key": connection.get("api_key", ""),
             "model": (local.get("shared_model") or shared["model"]) if mode == "shared" else custom["model"],
             "shared_model": local.get("shared_model") or "",
             "connection_saved": bool(local.get("connection_mode") or local.get("api_url")),
@@ -99,13 +146,14 @@ class AIConnection:
         if mode != "custom":
             raise ValueError("Choose the central connection or an own connection.")
         connection = validate_connection({**data, "transport": data.get("transport", legacy_transport)}, allow_auto=True)
-        return {"connection_mode": mode, **{key: connection[key] for key in ("api_url", "model", "transport")}}
+        return {"connection_mode": mode, **{key: connection[key] for key in ("api_url", "model", "transport", "api_key")}}
 
     @staticmethod
     def models(data):
         import requests
         connection = validate_connection(data, allow_auto=True)
-        response = requests.get(connection["api_url"] + "/models", timeout=8)
+        response = requests.get(connection["api_url"] + "/models", timeout=8,
+                                headers=auth_headers(connection), allow_redirects=False)
         response.raise_for_status()
         models = response.json().get("data", [])
         if not isinstance(models, list):

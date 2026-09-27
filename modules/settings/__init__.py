@@ -78,6 +78,9 @@ class _GitHubRedirectHandler(HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+from core.ai_connection import public_connection
+
+
 class SettingsModule(Module):
     name = "Settings"
     version = "1.5.0"
@@ -118,6 +121,7 @@ class SettingsModule(Module):
             "/api/settings/save": self._api_save,
             "/api/ai/connection": self._api_ai_save,
             "/api/ai/models": self._api_ai_models,
+            "/api/ai/browser-connection": self._api_ai_browser_connection,
             "/api/settings/save_path": self._api_save_path,
             "/api/settings/module/toggle": self._api_module_toggle,
             "/api/settings/network/regen_token": self._api_regen_token,
@@ -279,21 +283,29 @@ class SettingsModule(Module):
     # ─── API ──────────────────────────────────────────────────────────────
     def _api_ai_connection(self, handler, qs):
         try:
-            handler.respond_json(self.hub.ai_connection.shared())
+            handler.respond_json(public_connection(self.hub.ai_connection.shared()))
         except ValueError as exc:
             handler.respond_json({"error": str(exc)}, status=400)
 
     def _api_ai_save(self, handler, content_len, content_type):
         try:
             data = handler.read_body_json(content_len)
-            handler.respond_json(self.hub.ai_connection.save(data))
+            handler.respond_json(public_connection(self.hub.ai_connection.save(data)))
+        except ValueError as exc:
+            handler.respond_json({"error": str(exc)}, status=400)
+
+    def _api_ai_browser_connection(self, handler, content_len, content_type):
+        try:
+            cfg = self.hub.ai_connection.draft(handler.read_body_json(content_len))
+            if cfg["transport"] != "browser":
+                raise ValueError("This connection uses the CyberHub computer.")
+            handler.respond_json({"api_url": cfg["api_url"], "api_key": cfg["api_key"]})
         except ValueError as exc:
             handler.respond_json({"error": str(exc)}, status=400)
 
     def _api_ai_models(self, handler, content_len, content_type):
-        from core.ai_connection import validate_connection
         try:
-            data = validate_connection(handler.read_body_json(content_len))
+            data = self.hub.ai_connection.draft(handler.read_body_json(content_len))
         except ValueError as exc:
             handler.respond_json({"error": str(exc)}, status=400)
             return
@@ -304,13 +316,13 @@ class SettingsModule(Module):
 
     def _api_settings(self, handler, qs):
         import copy
-        data = copy.deepcopy(self.hub.settings.data)
+        data = public_connection(copy.deepcopy(self.hub.settings.data))
         data["_hub_version"] = getattr(self.hub, "VERSION", "1.0")
         # Don't leak the API key. Return a boolean signal instead so the UI
         # can show a "key saved" hint without putting a fake value in the input.
         civ = data.get("civitai")
         if isinstance(civ, dict):
-            civ["api_key_set"] = bool(civ.get("api_key"))
+            civ["api_key_set"] = bool(civ.get("api_key_set"))
             civ.pop("api_key", None)
         # The LAN access token is only revealed to localhost — over the network
         # the requester has already proven they have it (or they couldn't be here).
@@ -361,7 +373,7 @@ class SettingsModule(Module):
                 "protected": key in {"settings", "module_manager"},
                 "loaded": loaded_mod is not None,
                 "settings_schema": getattr(source, "settings_schema", {}),
-                "current_settings": self.hub.settings.get_module(key),
+                "current_settings": public_connection(self.hub.settings.get_module(key)),
             }
 
         for _folder, cls in available_module_classes():
@@ -1809,12 +1821,16 @@ SETTINGS_BODY = r"""
     <p class="desc">Shared by Captioner and Prompt Engineer when they use the central connection. Existing own connections are preserved.</p>
     <form id="aiConnectionForm" onsubmit="event.preventDefault(); saveAiConnection()">
       <div class="settings-row col"><label for="aiBackend" class="settings-label">Backend API</label>
-        <select id="aiBackend" class="settings-input wide"><option value="openai">OpenAI-compatible (LM Studio, MLX, …)</option></select></div>
+        <select id="aiBackend" class="settings-input wide"><option value="openai">OpenAI-compatible (LM Studio, oMLX, …)</option></select></div>
       <div class="settings-row col"><label for="aiApiUrl" class="settings-label">Server address</label>
         <input id="aiApiUrl" class="settings-input wide" required placeholder="http://localhost:1234" spellcheck="false"></div>
+      <div class="settings-row col"><label for="aiApiKey" class="settings-label">API key (optional)</label>
+        <input id="aiApiKey" class="settings-input wide" type="password" autocomplete="new-password" spellcheck="false" placeholder="Only if your server requires a key">
+        <label class="desc"><input id="aiClearApiKey" type="checkbox"> Remove saved API key</label>
+        <p class="desc">For servers such as oMLX with authentication enabled. Leave blank to keep the saved key. A different server address clears it unless you enter a new key.</p></div>
       <div class="settings-row col"><label for="aiTransport" class="settings-label">Connect from</label>
         <select id="aiTransport" class="settings-input wide"><option value="hub">CyberHub computer</option><option value="browser">Browser computer</option></select>
-        <p class="desc">localhost refers to the selected computer. For a server elsewhere, use its network address. Browser connections require the model server to allow browser access.</p></div>
+        <p class="desc">localhost refers to the selected computer. For a server elsewhere, use its network address. Browser connections require the model server to allow browser access and send the API key through this browser.</p></div>
       <div class="settings-row col"><label for="aiModel" class="settings-label">Default model</label>
         <input id="aiModel" class="settings-input wide" list="aiModels" placeholder="Server default" spellcheck="false"><datalist id="aiModels"></datalist>
         <p class="desc">Each module can choose another model. Captioner and image prompts require a vision-capable model.</p></div>
@@ -2020,13 +2036,23 @@ SETTINGS_BODY = r"""
 </div>
 
 <script>
+let aiConnectionConfig = {};
+function aiKeyDraft() {
+    if (document.getElementById('aiClearApiKey').checked) return {api_key:''};
+    const key = document.getElementById('aiApiKey').value.trim();
+    return key ? {api_key:key} : {};
+}
 function aiConnectionDraft() {
-    return {backend:document.getElementById('aiBackend').value,
+    return {...aiKeyDraft(), api_key_set:!!aiConnectionConfig.api_key_set, backend:document.getElementById('aiBackend').value,
         api_url:document.getElementById('aiApiUrl').value.trim(),
         model:document.getElementById('aiModel').value.trim(),
         transport:document.getElementById('aiTransport').value};
 }
 function populateAiConnection(config) {
+    aiConnectionConfig = config;
+    document.getElementById('aiApiKey').value = '';
+    document.getElementById('aiApiKey').placeholder = config.api_key_set ? 'API key saved — leave blank to keep' : 'Only if your server requires a key';
+    document.getElementById('aiClearApiKey').checked = false;
     document.getElementById('aiApiUrl').value = config.api_url || '';
     document.getElementById('aiModel').value = config.model || '';
     document.getElementById('aiTransport').value = config.transport || 'hub';
@@ -2047,6 +2073,21 @@ async function saveAiConnection() {
     } catch (e) {feedback.textContent = 'Save failed: ' + e.message;}
     finally {aiConnectionBusy(false);}
 }
+async function aiBrowserHeaders(cfg, saved=false) {
+  if (cfg.api_key === '' || (!cfg.api_key_set && !cfg.api_key)) return {};
+  const response = await fetch('/api/ai/browser-connection', {method:'POST', cache:'no-store', headers:{'Content-Type':'application/json'}, body:JSON.stringify(saved ? {saved:true} : cfg)});
+  const credentials = await response.json();
+  if (!response.ok || credentials.error) throw new Error(credentials.error || 'Could not read the saved API key');
+  if (normalizeAiAddress(credentials.api_url) !== normalizeAiAddress(cfg.api_url)) throw new Error('Connection changed. Please retry.');
+  return credentials.api_key ? {Authorization:'Bearer ' + credentials.api_key} : {};
+}
+
+function normalizeAiAddress(value) {
+    let address = String(value || '').trim();
+    if (!/^https?:\/\//i.test(address)) address = 'http://' + address;
+    address = address.replace(/\/+$/, '');
+    return /\/v1$/i.test(address) ? address : address + '/v1';
+}
 async function testAiConnection() {
     if (!document.getElementById('aiConnectionForm').reportValidity()) return;
     const feedback = document.getElementById('aiConnectionFeedback');
@@ -2060,7 +2101,8 @@ async function testAiConnection() {
             if (!/^https?:\/\//i.test(address)) address = 'http://' + address;
             address = address.replace(/\/+$/, '');
             if (!/\/v1$/i.test(address)) address += '/v1';
-            response = await fetch(address + '/models', {signal:AbortSignal.timeout(8000)});
+            const headers = await aiBrowserHeaders(draft);
+            response = await fetch(address + '/models', {headers, redirect:'error', signal:AbortSignal.timeout(8000)});
         } else {
             response = await fetch('/api/ai/models', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(draft), signal:AbortSignal.timeout(10000)});
         }

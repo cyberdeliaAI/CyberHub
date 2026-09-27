@@ -2,9 +2,9 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
-from core.ai_connection import AIConnection, normalize_api_url
+from core.ai_connection import AIConnection, normalize_api_url, public_connection, auth_headers
 from core.server import Settings
 from modules.settings import SettingsModule
 
@@ -85,6 +85,68 @@ class ConnectionTests(unittest.TestCase):
         SettingsModule(SimpleNamespace(ai_connection=self.service))._api_ai_models(handler, 0, '')
         self.assertEqual(self.store.data, before)
         self.service.models.assert_called_once()
+
+
+    def test_api_key_preserved_replaced_cleared_and_bound_to_endpoint(self):
+        self.central(api_key='first-secret')
+        self.assertEqual(self.central(model='changed')['api_key'], 'first-secret')
+        self.assertEqual(self.central(api_key='second-secret')['api_key'], 'second-secret')
+        self.assertEqual(self.central(api_url='different.test')['api_key'], '')
+        self.central(api_key='first-secret')
+        self.assertEqual(self.central(api_key='')['api_key'], '')
+        self.assertEqual(auth_headers(self.service.shared()), {})
+
+    def test_api_key_validation_is_atomic_and_does_not_echo_secret(self):
+        previous = self.central(api_key='kept-secret')
+        for bad in [42, None, 'bad secret', 'secret\r\nInjected:yes', 'é', 'x'*4097]:
+            with self.assertRaises(ValueError): self.central(api_key=bad)
+            self.assertEqual(self.service.shared(), previous)
+
+    def test_models_use_saved_or_draft_key_without_saving(self):
+        before = self.central(api_key='saved-secret')
+        response = Mock()
+        response.json.return_value = {'data':[{'id':'vision'}]}
+        with patch('requests.get', return_value=response) as request:
+            self.service.models(self.service.draft({'api_url':before['api_url']}))
+            self.assertEqual(request.call_args.kwargs['headers'], {'Authorization':'Bearer saved-secret'})
+            self.assertFalse(request.call_args.kwargs['allow_redirects'])
+            self.service.models(self.service.draft({'api_url':before['api_url'],'api_key':'draft-secret'}))
+            self.assertEqual(request.call_args.kwargs['headers'], {'Authorization':'Bearer draft-secret'})
+            self.service.models(self.service.draft({'api_url':'http://another'}))
+            self.assertEqual(request.call_args.kwargs['headers'], {})
+        self.assertEqual(self.service.shared(), before)
+
+    def test_normal_settings_and_nested_module_configs_redact_keys(self):
+        self.central(api_key='shared-secret')
+        self.store.set_module_settings('captioner', {'api_url':'http://own','api_key':'own-secret'})
+        self.store.set('civitai', {'api_key':'civitai-secret'})
+        handler = Mock()
+        module = SettingsModule(SimpleNamespace(ai_connection=self.service, settings=self.store))
+        module._api_settings(handler, {})
+        data = handler.respond_json.call_args.args[0]
+        self.assertNotIn('secret', str(data))
+        self.assertTrue(data['ai_connection']['api_key_set'])
+        self.assertTrue(data['modules']['captioner']['api_key_set'])
+        self.assertTrue(data['civitai']['api_key_set'])
+        cfg = public_connection(self.service.resolve('captioner'))
+        self.assertNotIn('secret', str(cfg))
+        self.assertTrue(cfg['custom']['api_key_set'])
+        self.assertTrue(cfg['shared']['api_key_set'])
+        self.assertEqual(self.service.shared()['api_key'], 'shared-secret')
+
+    def test_browser_credentials_are_explicit_and_endpoint_bound(self):
+        self.central(api_key='saved-secret')
+        module = SettingsModule(SimpleNamespace(ai_connection=self.service))
+        handler = Mock()
+        handler.read_body_json.return_value = {'api_url':'shared.test:8000','transport':'browser'}
+        module._api_ai_browser_connection(handler, 0, '')
+        self.assertEqual(handler.respond_json.call_args.args[0]['api_key'], 'saved-secret')
+        handler.read_body_json.return_value['api_url'] = 'http://another'
+        module._api_ai_browser_connection(handler, 0, '')
+        self.assertEqual(handler.respond_json.call_args.args[0]['api_key'], '')
+        handler.read_body_json.return_value['transport'] = 'hub'
+        module._api_ai_browser_connection(handler, 0, '')
+        self.assertEqual(handler.respond_json.call_args.kwargs['status'], 400)
 
 
 if __name__ == '__main__': unittest.main()

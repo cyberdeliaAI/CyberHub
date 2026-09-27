@@ -949,6 +949,7 @@ class HubHandler(SimpleHTTPRequestHandler):
         else:
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", len(data))
         self.send_header("Connection", "keep-alive")
         self.end_headers()

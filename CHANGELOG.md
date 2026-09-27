@@ -2,6 +2,7 @@
 
 ## CyberHub 1.4.0 / Settings 1.5.0 — 27 September 2026
 
+- Added optional API-key authentication (Bearer tokens) for servers such as oMLX, including model discovery, captions and streamed prompts.
 - Added Settings → AI connection for one shared OpenAI-compatible server,
   connection location and default model, with connection testing and model discovery.
 - Added a Core connection service with module model overrides and preserved own
