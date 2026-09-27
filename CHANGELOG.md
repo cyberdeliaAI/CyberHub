@@ -1,5 +1,16 @@
 # Changelog
 
+## CyberHub 1.4.0 / Settings 1.5.0 — 27 September 2026
+
+- Added Settings → AI connection for one shared OpenAI-compatible server,
+  connection location and default model, with connection testing and model discovery.
+- Added a Core connection service with module model overrides and preserved own
+  connections. Existing connections never silently opt into the shared default.
+- Captioner 1.7.0 and Prompt Engineer 1.3.0 can use this service; older modules
+  continue using their existing settings. Auto Tagger remains a local ONNX tool.
+- Central settings apply on the next generation request without a Hub restart.
+
+
 ## CyberHub 1.3.1 - 6 September 2026
 
 Includes Module Manager 1.0.1. Settings remains 1.4.1 and Gallery remains 1.2.13.

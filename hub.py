@@ -30,6 +30,7 @@ sys.path.insert(0, HERE)
 from core import ModuleRegistry, available_module_classes, module_key_from_class
 from core.civitai import CivitaiLookup
 from core.module_store import ModuleStore
+from core.ai_connection import AIConnection
 from core.server import Settings, HubHandler, ThreadedHTTPServer
 
 RESOURCES_DIR = os.path.join(HERE, "resources")
@@ -92,7 +93,7 @@ class Hub:
     lookup through this object.
     """
 
-    VERSION = "1.3.1"
+    VERSION = "1.4.0"
 
     # Subdirectories under resources/ that should always exist. Modules can
     # rely on these being present even if the user wipes the folder.
@@ -102,6 +103,7 @@ class Hub:
 
     def __init__(self, settings):
         self.settings = settings
+        self.ai_connection = AIConnection(settings)
         self.registry = ModuleRegistry()
         self.civitai = CivitaiLookup()
         self.resources_dir = RESOURCES_DIR

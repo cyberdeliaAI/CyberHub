@@ -70,6 +70,23 @@ You can also extract a complete release over the installation, or use
 Local `settings.json`, Gallery databases and downloaded models are not part of
 the release overwrite flow.
 
+## Shared AI connection (1.4.0)
+
+Use **Settings → AI connection** to configure an OpenAI-compatible server such
+as LM Studio or MLX, choose a default model and test the connection. Choose
+**CyberHub computer** or **Browser computer** explicitly: `localhost` refers to
+that computer. Browser connections require the model server to allow browser
+access. Server addresses with or without `/v1` are accepted.
+
+Captioner 1.7.0 and Prompt Engineer 1.3.0 can select **Central connection**, with
+an optional model override. Existing own connections are preserved; modules
+without a saved connection inherit the central default once configured. Their
+generation parameters remain separate. Auto Tagger does not use this server.
+
+Settings is bundled with Core. Updated modules remain usable with CyberHub
+1.3.x through **Own connection**; old modules keep using their own settings
+when Core is updated. There is no mandatory simultaneous update.
+
 ## Docker
 
 Docker users can build and start CyberHub with:

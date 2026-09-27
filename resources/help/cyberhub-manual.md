@@ -571,35 +571,38 @@ Auto-caption images with a local Vision Language Model running in LM Studio.
 
 **How it works**
 
-1. Check the **Connection** block in the left sidebar
-2. Set the API URL and optionally the model or generation overrides, then click
-   **Save** or **Detect model**
-3. Drag images into the drop zone, click to browse, or use **Open folder**
-4. Pick a built-in Vision script or one of your saved presets
-5. Optionally tweak the active instruction in the inline editor
-6. Click **Run all** to caption every queued image
-7. Captions appear next to each thumbnail; the queue has its own scrollbar so
-   the progress and batch buttons remain visible with large datasets
+1. Check the **Connection**
 
-**Connection**
+Open **Settings** at the top of Captioner or click its **Connection** status.
+Choose **Central connection** to use **Settings → AI connection**, or **Own
+connection** for a separate server. You can override the model for Captioner
+without changing the shared server. Leave the model override empty to inherit
+the central model (or the server default for an own connection). Use a
+vision-capable model when sending images.
 
-Captioner exposes its LM Studio / OpenAI-compatible connection directly in the module sidebar. Captioner no longer has a separate block in Settings; connection and Vision scripts are managed from the Captioner page itself.
+Central settings include an OpenAI-compatible backend, server address, default
+model and **Connect from** choice. `localhost` means the CyberHub computer or
+the browser computer, depending on that choice. Use a network address for a
+model server on another computer. Browser connections require browser access
+on the model server. **Test connection / find models** tests the draft without
+saving it. **Save AI connection** applies it for the next generation request.
 
-Like Prompt Engineer, Captioner first connects directly from the browser. If
-that is unavailable, it automatically retries through the CyberHub server. This
-supports both LM Studio on the computer running your browser and LM Studio next
-to CyberHub on a separate server.
+Own Captioner connections retain the existing browser-first, Hub-fallback mode.
+You can explicitly choose only the Hub or only the browser instead. Central
+connections always use the selected computer; a connection failure does not
+silently send the image to a different computer.
 
-- **API URL**: usually `http://localhost:1234` for LM Studio on the same computer.
-  Addresses with or without `/v1` are accepted, including custom ports such as
-  `http://localhost:8000`.
-- With browser-direct access, `localhost` refers to the computer displaying
-  CyberHub. For LM Studio on another computer, enter that computer's LAN address
-  and enable network access in LM Studio.
-- **Model**: leave empty to let the backend use its configured default, or click **Detect model**
-- **Temperature, Top P, Max tokens, Top K and Presence penalty** are optional
-  overrides. Empty fields are omitted from the request so LM Studio uses its own
-  configured values. **Clear generation overrides** empties and saves all five.
+Existing module connections are preserved until you select central mode.
+Switching to central keeps the own connection as a backup. New module setups
+without an own connection inherit the central default once configured.
+Updated modules remain usable on older Core/Settings through their own
+connections. Older module versions simply keep using their existing settings.
+Auto Tagger uses its local ONNX model and does not need this configuration.
+
+**Temperature, Top P, Max tokens, Top K and Presence penalty** are optional
+module overrides. Empty fields use the model server's defaults. **Clear
+generation overrides** empties the form; **Save settings** applies the change.
+**Cancel**, Escape or closing the dialog discards unsaved changes.
 
 **Vision scripts and presets**
 
@@ -667,11 +670,19 @@ Build, rewrite or generate image prompts via a local LM Studio model.
 
 **Connection**
 
-- Backend: LM Studio (the vision-supported variant works for both text and image inputs)
-- Server address: defaults to `localhost:1234`
-- Click **Detect Model** after pointing at a server to confirm what's loaded
-- The server address, detected context, generation overrides and image-resize
-  preferences are saved in the browser and restored when returning to the page.
+- Choose **Central connection** for the shared **Settings → AI connection**,
+  or **Own connection** for a separate server. The shared configuration requires
+  Core 1.4.0 / Settings 1.5.0; own connections also work on older Core.
+- An empty model override inherits the central model or server default.
+  **Detect Model** fills the complete model ID and detects context information;
+  click **Save connection** to use that model.
+- Connections are stored in CyberHub. On first use after updating, an existing
+  browser connection is preserved as an own connection only if CyberHub has no
+  saved connection for Prompt Engineer. Later browsers cannot overwrite it.
+- **CyberHub computer** supports streaming responses through the Hub.
+  **Browser computer** connects directly. `localhost` refers to that computer.
+- Generation overrides, context, image-resize preferences and chat history
+  remain in the browser. Unsaved connection edits do not affect generation.
 
 **Modes**
 

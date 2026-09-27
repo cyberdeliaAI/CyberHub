@@ -13,7 +13,7 @@ class SettingsModuleLayoutTests(unittest.TestCase):
         self.assertNotIn("querySelectorAll('.mc-head[data-acc]')", SETTINGS_BODY)
 
     def test_settings_version_was_bumped_for_layout_change(self):
-        self.assertEqual(SettingsModule.version, "1.4.1")
+        self.assertEqual(SettingsModule.version, "1.5.0")
 
 
 if __name__ == "__main__":

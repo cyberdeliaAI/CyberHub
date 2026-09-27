@@ -126,6 +126,12 @@ class Settings:
             self.data.setdefault("modules", {}).setdefault(module_key, {})[key] = value
         self.save()
 
+    def set_module_settings(self, module_key, values):
+        """Save a validated set of module fields together."""
+        with self.lock:
+            self.data.setdefault("modules", {}).setdefault(module_key, {}).update(values)
+        self.save()
+
     def is_module_enabled(self, module_key):
         # Default: enabled. Settings module is always on (enforced in hub.py).
         return self.get_module(module_key).get("enabled", True)

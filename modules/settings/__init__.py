@@ -80,7 +80,7 @@ class _GitHubRedirectHandler(HTTPRedirectHandler):
 
 class SettingsModule(Module):
     name = "Settings"
-    version = "1.4.1"
+    version = "1.5.0"
     icon = "\u2699"   # ⚙
     description = "Configure the hub and individual modules."
     show_in_tabs = False     # gear icon in topbar handles navigation
@@ -103,6 +103,7 @@ class SettingsModule(Module):
         return {
             "/settings": self._page,
             "/api/settings": self._api_settings,
+            "/api/ai/connection": self._api_ai_connection,
             "/api/settings/modules": self._api_modules,
             "/api/browse": self._api_browse,
             "/api/civitai/info": self._api_civitai_info,
@@ -115,6 +116,8 @@ class SettingsModule(Module):
     def routes_post(self):
         return {
             "/api/settings/save": self._api_save,
+            "/api/ai/connection": self._api_ai_save,
+            "/api/ai/models": self._api_ai_models,
             "/api/settings/save_path": self._api_save_path,
             "/api/settings/module/toggle": self._api_module_toggle,
             "/api/settings/network/regen_token": self._api_regen_token,
@@ -274,6 +277,31 @@ class SettingsModule(Module):
         })
 
     # ─── API ──────────────────────────────────────────────────────────────
+    def _api_ai_connection(self, handler, qs):
+        try:
+            handler.respond_json(self.hub.ai_connection.shared())
+        except ValueError as exc:
+            handler.respond_json({"error": str(exc)}, status=400)
+
+    def _api_ai_save(self, handler, content_len, content_type):
+        try:
+            data = handler.read_body_json(content_len)
+            handler.respond_json(self.hub.ai_connection.save(data))
+        except ValueError as exc:
+            handler.respond_json({"error": str(exc)}, status=400)
+
+    def _api_ai_models(self, handler, content_len, content_type):
+        from core.ai_connection import validate_connection
+        try:
+            data = validate_connection(handler.read_body_json(content_len))
+        except ValueError as exc:
+            handler.respond_json({"error": str(exc)}, status=400)
+            return
+        try:
+            handler.respond_json(self.hub.ai_connection.models(data))
+        except Exception as exc:
+            handler.respond_json({"error": str(exc), "models": []}, status=503)
+
     def _api_settings(self, handler, qs):
         import copy
         data = copy.deepcopy(self.hub.settings.data)
@@ -1776,6 +1804,26 @@ SETTINGS_BODY = r"""
     <button class="action-btn" onclick="restartHub()">Restart now</button>
   </div>
 
+  <section class="settings-section" id="ai-connection">
+    <h2>AI connection</h2>
+    <p class="desc">Shared by Captioner and Prompt Engineer when they use the central connection. Existing own connections are preserved.</p>
+    <form id="aiConnectionForm" onsubmit="event.preventDefault(); saveAiConnection()">
+      <div class="settings-row col"><label for="aiBackend" class="settings-label">Backend API</label>
+        <select id="aiBackend" class="settings-input wide"><option value="openai">OpenAI-compatible (LM Studio, MLX, …)</option></select></div>
+      <div class="settings-row col"><label for="aiApiUrl" class="settings-label">Server address</label>
+        <input id="aiApiUrl" class="settings-input wide" required placeholder="http://localhost:1234" spellcheck="false"></div>
+      <div class="settings-row col"><label for="aiTransport" class="settings-label">Connect from</label>
+        <select id="aiTransport" class="settings-input wide"><option value="hub">CyberHub computer</option><option value="browser">Browser computer</option></select>
+        <p class="desc">localhost refers to the selected computer. For a server elsewhere, use its network address. Browser connections require the model server to allow browser access.</p></div>
+      <div class="settings-row col"><label for="aiModel" class="settings-label">Default model</label>
+        <input id="aiModel" class="settings-input wide" list="aiModels" placeholder="Server default" spellcheck="false"><datalist id="aiModels"></datalist>
+        <p class="desc">Each module can choose another model. Captioner and image prompts require a vision-capable model.</p></div>
+      <div class="settings-row"><button class="action-btn" type="button" onclick="testAiConnection()">Test connection / find models</button>
+        <button class="action-btn" type="submit">Save AI connection</button></div>
+      <p id="aiConnectionFeedback" class="desc" role="status"></p>
+    </form>
+  </section>
+
   <div class="settings-cols">
    <div class="settings-col">
 
@@ -1972,6 +2020,60 @@ SETTINGS_BODY = r"""
 </div>
 
 <script>
+function aiConnectionDraft() {
+    return {backend:document.getElementById('aiBackend').value,
+        api_url:document.getElementById('aiApiUrl').value.trim(),
+        model:document.getElementById('aiModel').value.trim(),
+        transport:document.getElementById('aiTransport').value};
+}
+function populateAiConnection(config) {
+    document.getElementById('aiApiUrl').value = config.api_url || '';
+    document.getElementById('aiModel').value = config.model || '';
+    document.getElementById('aiTransport').value = config.transport || 'hub';
+}
+function aiConnectionBusy(busy) {
+    document.querySelectorAll('#aiConnectionForm button, #aiConnectionForm input, #aiConnectionForm select').forEach(el => {el.disabled=busy;});
+}
+async function saveAiConnection() {
+    const feedback = document.getElementById('aiConnectionFeedback');
+    const draft = aiConnectionDraft();
+    aiConnectionBusy(true);
+    try {
+        const response = await fetch('/api/ai/connection', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(draft)});
+        const data = await response.json();
+        if (!response.ok || data.error) throw new Error(data.error || 'Save failed');
+        populateAiConnection(data);
+        feedback.textContent = 'Saved. Modules using the central connection use this for their next request. Own connections are unchanged.';
+    } catch (e) {feedback.textContent = 'Save failed: ' + e.message;}
+    finally {aiConnectionBusy(false);}
+}
+async function testAiConnection() {
+    if (!document.getElementById('aiConnectionForm').reportValidity()) return;
+    const feedback = document.getElementById('aiConnectionFeedback');
+    const draft = aiConnectionDraft();
+    aiConnectionBusy(true);
+    feedback.textContent = 'Connecting…';
+    try {
+        let response;
+        if (draft.transport === 'browser') {
+            let address = draft.api_url;
+            if (!/^https?:\/\//i.test(address)) address = 'http://' + address;
+            address = address.replace(/\/+$/, '');
+            if (!/\/v1$/i.test(address)) address += '/v1';
+            response = await fetch(address + '/models', {signal:AbortSignal.timeout(8000)});
+        } else {
+            response = await fetch('/api/ai/models', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(draft), signal:AbortSignal.timeout(10000)});
+        }
+        const data = await response.json();
+        if (!response.ok || data.error) throw new Error(data.error?.message || data.error || 'Connection failed');
+        const models = data.models || (data.data || []).map(item => item.id).filter(Boolean);
+        document.getElementById('aiModels').replaceChildren(...models.map(model => {
+            const option=document.createElement('option'); option.value=model; return option;
+        }));
+        feedback.textContent = models.length ? 'Connected. Choose a model from Default model, or leave it empty. Save to apply.' : 'Connected, but no models were reported.';
+    } catch(e) {feedback.textContent = 'Connection failed: ' + e.message;}
+    finally {aiConnectionBusy(false);}
+}
 var _restart = document.getElementById('restartBanner');
 function flagRestart() {
     if (!_restart) return;
@@ -2452,6 +2554,7 @@ function loadAll() {
         fetch('/api/settings/modules').then(function(r){return r.json()}),
     ]).then(function(both) {
         var s = both[0], mods = both[1];
+        populateAiConnection(s.ai_connection || {});
 
         document.getElementById('hubTitle').value = s.title || 'CyberHub';
         document.getElementById('portInput').value = s.port || 8899;
