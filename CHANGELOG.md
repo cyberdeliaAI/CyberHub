@@ -1,5 +1,12 @@
 # Changelog
 
+## CyberHub 1.4.1 / Settings 1.5.1 — 27 September 2026
+
+- Made the AI connection panel collapsible and closed by default. Click its
+  heading to open or close it; the browser remembers your choice.
+- Links from Captioner and Prompt Engineer open the panel automatically.
+- Collapsing the panel preserves unsaved connection edits.
+
 ## CyberHub 1.4.0 / Settings 1.5.0 — 27 September 2026
 
 - Added optional API-key authentication (Bearer tokens) for servers such as oMLX, including model discovery, captions and streamed prompts.

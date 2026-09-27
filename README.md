@@ -74,6 +74,8 @@ the release overwrite flow.
 
 Use **Settings → AI connection** to configure an OpenAI-compatible server such
 as LM Studio or oMLX, choose a default model and test the connection.
+Click the **AI connection** heading to expand or collapse the panel. Your browser
+remembers your choice; links from modules open the panel automatically.
 Enter an optional **API key** when the server requires authentication. Leave the
 field blank to keep a saved key; select **Remove saved API key** to delete it.
 Changing the server address clears the old key unless you enter a new one. Choose
@@ -83,11 +85,10 @@ access. Server addresses with or without `/v1` are accepted. Keys are stored loc
 `settings.json`; browser connections receive the key only when making a direct
 request. Hub connections keep it on the CyberHub computer.
 
-The 1.4.0 downloads were revised to add API-key support while keeping the same
-version. If you already installed the earlier 1.4.0, import the current release
-ZIP through **Settings → Maintenance → Import update or module ZIP** and restart.
-Update Captioner to 1.7.1 and Prompt Engineer to 1.3.1 through Module Manager
-for API-key support. Version-based checks do not detect same-version Core revisions.
+CyberHub 1.4.1 includes API-key support and the collapsible AI connection panel.
+Install it through **Settings → Software updates** and restart. Core and Settings
+update together, preserving your existing settings. Update Captioner to 1.7.1
+and Prompt Engineer to 1.3.1 through Module Manager for API-key support.
 
 Captioner 1.7.0 and Prompt Engineer 1.3.0 can select **Central connection**, with
 an optional model override. Existing own connections are preserved; modules

@@ -83,7 +83,7 @@ from core.ai_connection import public_connection
 
 class SettingsModule(Module):
     name = "Settings"
-    version = "1.5.0"
+    version = "1.5.1"
     icon = "\u2699"   # ⚙
     description = "Configure the hub and individual modules."
     show_in_tabs = False     # gear icon in topbar handles navigation
@@ -1614,6 +1614,13 @@ SETTINGS_BODY = r"""
 @media (max-width: 900px) { .settings-cols { grid-template-columns:1fr; } }
 .settings-section { background:var(--bg-panel); border:1px solid var(--border); border-radius:8px; padding:20px; margin-bottom:16px; }
 .settings-section h2 { font-size:14px; font-weight:600; color:var(--text-bright); margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+.settings-section h2.ai-connection-heading { margin:0; }
+.ai-connection-toggle { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; border:0; padding:0; background:none; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.ai-connection-toggle:hover { color:var(--accent); }
+.ai-connection-toggle:focus-visible { outline:2px solid var(--accent); outline-offset:6px; border-radius:2px; }
+.ai-connection-toggle svg { width:16px; height:16px; flex-shrink:0; transform:rotate(-90deg); }
+.ai-connection-toggle[aria-expanded="true"] svg { transform:none; }
+.ai-connection-body { margin-top:14px; }
 .settings-section h2 .section-icon { width:16px; height:16px; display:inline-flex; align-items:center; justify-content:center; color:var(--text-dim); flex-shrink:0; }
 .settings-section h2 .section-icon svg { width:15px; height:15px; display:block; }
 .version-badge { display:inline-flex; align-items:center; height:18px; padding:0 7px; border-radius:999px; background:var(--bg-card); border:1px solid var(--border); color:var(--text-dim); font-size:10px; font-family:var(--mono); font-weight:600; line-height:1; }
@@ -1817,7 +1824,10 @@ SETTINGS_BODY = r"""
   </div>
 
   <section class="settings-section" id="ai-connection">
-    <h2>AI connection</h2>
+    <h2 class="ai-connection-heading"><button type="button" id="aiConnectionToggle" class="ai-connection-toggle" aria-expanded="false" aria-controls="aiConnectionBody">
+      <span>AI connection</span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+    </button></h2>
+    <div id="aiConnectionBody" class="ai-connection-body" hidden>
     <p class="desc">Shared by Captioner and Prompt Engineer when they use the central connection. Existing own connections are preserved.</p>
     <form id="aiConnectionForm" onsubmit="event.preventDefault(); saveAiConnection()">
       <div class="settings-row col"><label for="aiBackend" class="settings-label">Backend API</label>
@@ -1838,6 +1848,7 @@ SETTINGS_BODY = r"""
         <button class="action-btn" type="submit">Save AI connection</button></div>
       <p id="aiConnectionFeedback" class="desc" role="status"></p>
     </form>
+    </div>
   </section>
 
   <div class="settings-cols">
@@ -2036,6 +2047,27 @@ SETTINGS_BODY = r"""
 </div>
 
 <script>
+(function initAiConnectionPanel() {
+    const toggle = document.getElementById('aiConnectionToggle');
+    const body = document.getElementById('aiConnectionBody');
+    const storageKey = 'cyberhub.settings.aiConnectionExpanded';
+    const setExpanded = expanded => {
+        toggle.setAttribute('aria-expanded', String(expanded));
+        body.hidden = !expanded;
+    };
+    let expanded = false;
+    try { expanded = localStorage.getItem(storageKey) === 'true'; } catch (e) {}
+    setExpanded(expanded || window.location.hash === '#ai-connection');
+    toggle.addEventListener('click', () => {
+        const expanded = body.hidden;
+        setExpanded(expanded);
+        try { localStorage.setItem(storageKey, String(expanded)); } catch (e) {}
+    });
+    window.addEventListener('hashchange', () => {
+        if (window.location.hash === '#ai-connection') setExpanded(true);
+    });
+})();
+
 let aiConnectionConfig = {};
 function aiKeyDraft() {
     if (document.getElementById('aiClearApiKey').checked) return {api_key:''};

@@ -935,6 +935,13 @@ Useful when your upscaling workflow (gigapixel, topaz, custom) strips the prompt
 
 Where everything is configured.
 
+**AI connection**
+
+Click the **AI connection** heading to show or hide the shared server settings.
+The panel starts collapsed and your browser remembers your choice. Links from
+Captioner and Prompt Engineer open it automatically. Collapsing the panel keeps
+any unsaved edits; use **Save AI connection** to apply them.
+
 **Hub section**
 
 - Hub framework version, shown next to the Hub heading
