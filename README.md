@@ -37,8 +37,10 @@ InvokeAI, NovelAI, SwarmUI, Fooocus variants and Easy Diffusion.
 
 ## Install
 
-For a normal installation, download the current CyberHub release ZIP and extract
-it to its own folder.
+For a new installation, download **cyberhub_v1.4.2.zip** and extract it to its
+own folder. It contains Core 1.4.2, Settings 1.5.2, Module Manager 1.1.0 and
+Gallery 1.2.14. Optional modules and newer Gallery releases are available through
+Module Manager.
 
 - **Windows:** double-click `start.bat`.
 - **macOS:** open a terminal in the CyberHub folder and run `./start.sh`.
@@ -58,15 +60,21 @@ local URL, then use Settings to add your image folders and configure modules.
 Detailed Linux and manual installation instructions are available in the
 CyberHub manual.
 
-Update CyberHub itself from **Settings -> Software updates -> Check for
-updates**. Install or update individual modules from **Module Manager -> Check
-for updates**. Both are always manual actions: CyberHub does not contact GitHub
-at startup or in the background. Downloads are tied to their declared GitHub
+Update CyberHub itself from **Settings -> CyberHub system updates -> Check for
+system updates**. Install or update individual modules from **Module Manager ->
+Check for module updates**. Module Manager groups available updates above the
+module list, showing the installed and available versions. Core, Settings and
+Module Manager update together through Settings; both pages link to the other
+update area. Both checks are always manual actions: CyberHub does not contact
+GitHub at startup or in the background. Downloads are tied to their declared GitHub
 Release repository and checked against a published SHA-256 digest. Existing
 files are backed up and a restart is requested after installation.
 
-You can also extract a complete release over the installation, or use
-**Settings -> Maintenance -> Import update or module ZIP** when working offline.
+For an offline system update, import **cyberhub_update_v1.4.2.zip** through
+**Settings -> Maintenance -> Import update or module ZIP**. This system package
+updates Core, Settings and Module Manager while preserving Gallery and other
+independently installed modules. The automatic download selected by the manual
+update check uses this same system package.
 Local `settings.json`, Gallery databases and downloaded models are not part of
 the release overwrite flow.
 
@@ -86,7 +94,7 @@ access. Server addresses with or without `/v1` are accepted. Keys are stored loc
 request. Hub connections keep it on the CyberHub computer.
 
 CyberHub 1.4.1 includes API-key support and the collapsible AI connection panel.
-Install it through **Settings → Software updates** and restart. Core and Settings
+Install it through **Settings → CyberHub system updates** and restart. Core and Settings
 update together, preserving your existing settings. Update Captioner to 1.7.1
 and Prompt Engineer to 1.3.1 through Module Manager for API-key support.
 
@@ -138,7 +146,7 @@ starter release combines Core with Gallery for a complete first-run experience.
 The central
 [`CyberHub-Registry`](https://github.com/cyberdeliaAI/CyberHub-Registry)
 contains the catalog that Module Manager reads only after the user clicks
-**Check for updates**. Official and community ownership is shown separately
+**Check for module updates**. Official and community ownership is shown separately
 from stable or beta status.
 
 Large or downloaded runtime assets are intentionally kept out of source control,

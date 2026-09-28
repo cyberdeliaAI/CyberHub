@@ -1,5 +1,20 @@
 # Changelog
 
+## CyberHub 1.4.2 / Module Manager 1.1.0 / Settings 1.5.2 — 28 September 2026
+
+- Group available updates for installed modules in a separate panel above the
+  module filters, with a count, installed/available versions and amber update buttons.
+- Keep all update channels visible together and avoid repeating those cards below.
+- Distinguish unchecked, no-update and failed-check states; keep successful check
+  results during the Hub session without contacting GitHub on page navigation.
+- Refresh saved results locally after module changes and use the installed package
+  version so completed updates disappear before restarting CyberHub.
+- Clarify module versus CyberHub system updates with specific button labels and
+  links between both pages. Settings displays system packages; individual module
+  updates remain in Module Manager.
+- Ship a separate system update package so existing Gallery and optional module
+  versions are preserved. The starter for new installations still includes Gallery.
+
 ## CyberHub 1.4.1 / Settings 1.5.1 — 27 September 2026
 
 - Made the AI connection panel collapsible and closed by default. Click its

@@ -255,16 +255,28 @@ Module Manager is on the right.
 - **Official** shows stable modules maintained by Cyberdelia.
 - **Beta** shows modules still under active development.
 - **Community** is reserved for third-party modules accepted into the catalog.
-- **Check for updates** is the only action that contacts the GitHub registry.
+- **Check for module updates** is the only action that contacts the GitHub registry.
   Opening CyberHub does not perform a check.
-- **Install** and **Update** download one verified module package, check its
+- **Module updates** groups newer versions of installed modules above the filters,
+  with a count, installed and available versions, and amber **Update module** buttons.
+  This list includes Official, Beta and Community updates regardless of the selected
+  filter. Required CyberHub versions or missing dependencies are shown on the cards.
+  Modules awaiting an update appear here instead of being repeated in the list below.
+- Before a successful check, the page says **Not checked yet**. After a failed
+  check, any earlier results remain visible with a warning. Returning to Module
+  Manager restores the last successful check during the current Hub session without
+  contacting GitHub. Installing or removing a module refreshes those saved results
+  locally; a new online check still requires the button.
+- **Install module** and **Update module** download one verified module package, check its
   repository, size and SHA-256 checksum, and create a backup before replacing
   files.
 - **Remove** deletes only files registered as owned by that module. Module
   settings and user data are preserved, and a backup is retained.
 
-Settings and Module Manager are protected system modules. They cannot be
-disabled or removed. Python modules contain executable code, so community
+Core, Settings and Module Manager update together through **Settings → CyberHub
+system updates**. Follow **Open system updates in Settings** from Module Manager;
+Settings also links back to module updates. Settings and Module Manager are
+protected system modules. They cannot be disabled or removed. Python modules contain executable code, so community
 modules show an additional warning before installation.
 
 After installing, updating or removing a module, click **Restart CyberHub** in
@@ -968,16 +980,19 @@ any unsaved edits; use **Save AI connection** to apply them.
 - Each module has a collapsible accordion with its own settings (folder paths, defaults, toggles)
 - Disable a module to remove it from the top bar entirely
 
-**Software updates**
+**CyberHub system updates**
 
-- **Check for updates** contacts the official CyberHub GitHub Releases page and
+- **Check for system updates** contacts the official CyberHub GitHub Releases page and
   shows updates for CyberHub Core and its protected system modules.
 - Update checks are always manual. Opening CyberHub or Settings never contacts
   GitHub and there is no periodic background check.
-- Click **Install update** to download the selected package. CyberHub shows
+- Click **Install system update** to download the selected package. CyberHub shows
   download and installation progress, verifies the
   published SHA-256 digest, validates the package contents and backs up replaced
   files before installation.
+- System updates use **cyberhub_update_v1.4.2.zip**, which preserves Gallery and
+  optional module versions. Import this same ZIP from Maintenance when updating
+  offline. Use **cyberhub_v1.4.2.zip** for a new installation with bundled Gallery.
 - Use **Module Manager** for Gallery and all optional module updates. It also
   requires a manual check and uses the same verified installation process.
 - Restart CyberHub when the update completes. Personal settings, the Gallery

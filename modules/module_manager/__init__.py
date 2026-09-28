@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import hashlib
 import json
 import os
@@ -26,7 +27,7 @@ REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 
 class ModuleManagerModule(Module):
     name = "Module Manager"
-    version = "1.0.1"
+    version = "1.1.0"
     description = "Install, update and remove CyberHub modules manually."
     order = 5
     show_in_tabs = True
@@ -76,12 +77,18 @@ class ModuleManagerModule(Module):
         output = []
         for folder, cls in available_module_classes():
             record = records.get(folder, {})
+            version = str(getattr(cls, "version", "1.0"))
+            channel = "beta" if getattr(cls, "release_stage", "stable") == "beta" else "stable"
+            if record.get("managed"):
+                # The running class still has the old version until restart.
+                version = str(record.get("version") or version)
+                channel = record.get("channel") or channel
             output.append({
                 "id": folder,
                 "name": str(getattr(cls, "name", folder)),
                 "summary": str(getattr(cls, "description", "")),
-                "version": str(getattr(cls, "version", "1.0")),
-                "channel": "beta" if getattr(cls, "release_stage", "stable") == "beta" else "stable",
+                "version": version,
+                "channel": channel,
                 "publisher_type": record.get("publisher_type") or "local",
                 "repository": record.get("repository") or "",
                 "protected": folder in self.hub.module_store.PROTECTED,
@@ -241,9 +248,10 @@ class ModuleManagerModule(Module):
             copy = dict(item)
             copy.update({
                 "installed": current is not None,
+                "protected": bool((current or {}).get("protected")),
                 "installed_version": str((current or {}).get("version") or ""),
-                "update_available": current is None or _is_newer_version(
-                    item["version"], (current or {}).get("version") or "0",
+                "update_available": bool(current) and not current.get("protected") and _is_newer_version(
+                    item["version"], current.get("version") or "0",
                 ),
                 "compatible": compatible,
                 "missing_dependencies": missing_dependencies,
@@ -252,6 +260,7 @@ class ModuleManagerModule(Module):
         return {
             "ok": True,
             "generated_at": catalog.get("generated_at", ""),
+            "checked_at": catalog.get("checked_at", ""),
             "release_url": catalog.get("release_url", ""),
             "modules": modules,
         }
@@ -259,10 +268,10 @@ class ModuleManagerModule(Module):
     def _api_catalog(self, handler, qs):
         refresh = str(qs.get("refresh", [""])[0]).lower() in {"1", "true", "yes"}
         try:
-            with self._lock:
-                has_catalog = bool(self._catalog)
-            if refresh or not has_catalog:
+            # Reading saved results must never trigger a GitHub check.
+            if refresh:
                 catalog = self._fetch_catalog()
+                catalog["checked_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
                 with self._lock:
                     self._catalog = {item["id"]: item for item in catalog["modules"]}
                     self._catalog_meta = catalog
@@ -404,19 +413,15 @@ PAGE = r"""
 </style>
 <style>
 .mm-restart{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding:12px 0;border-block:1px solid var(--border);font-size:12px}.mm-restart[hidden]{display:none}.mm-restart-copy{flex:1;min-width:160px}.mm-restart-error{width:100%;color:#ef6464}.mm-jobline{gap:12px}.mm-jobline span:first-child{min-width:0;overflow-wrap:anywhere}
+
+.mm h2{font-size:16px;margin:0}.mm-scope{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:20px}.mm-scope p{margin:5px 0 0;line-height:1.5}.mm-scope strong{color:var(--text)}.mm-link{color:var(--accent);font-size:12px}.mm-updates{border:1px solid var(--border);border-radius:9px;padding:18px;margin-bottom:24px;background:var(--bg-panel)}.mm-updates.has-updates{border-color:#b58120}.mm-updates-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.mm-count{display:inline-block;background:#f0b84b;color:#211600;border-radius:20px;padding:2px 8px;font-size:12px;margin-left:6px}.mm-count[hidden]{display:none}.mm-updates-summary{color:var(--text-dim);font-size:12px;line-height:1.5;margin:10px 0 4px}.mm-updates .mm-time{display:block;margin:0 0 14px}.mm-updates .mm-grid:empty{display:none}.mm-updates .mm-card{background:var(--bg-input)}.mm-btn.update{background:#f0b84b;color:#211600;font-weight:650}.mm-versions{font-size:12px;color:var(--text);margin:8px 0 12px}.mm-actions{flex-wrap:wrap}.mm-title,.mm-desc,.mm-tag{overflow-wrap:anywhere}.mm-heading{margin-bottom:12px}.mm-note[hidden]{display:none}.mm-btn:focus-visible,.mm-tab:focus-visible,.mm-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px}@media(max-width:600px){.mm-updates{padding:13px}.mm-tabs{flex-wrap:wrap}}
 </style>
 <main class="mm">
   <h1>Module Manager</h1>
-  <div class="mm-lead">Choose how extensive you want CyberHub to be. Nothing is checked or installed automatically.</div>
-  <div class="mm-bar">
-    <div class="mm-tabs">
-      <button class="mm-tab active" data-tab="installed">Installed</button>
-      <button class="mm-tab" data-tab="official">Official</button>
-      <button class="mm-tab" data-tab="beta">Beta</button>
-      <button class="mm-tab" data-tab="community">Community</button>
-    </div>
-    <button class="mm-btn" id="mmRefresh">Check for updates</button>
-    <span class="mm-time" id="mmTime">Not checked yet</span>
+  <div class="mm-lead">Update your modules or add new ones. Nothing is checked or installed automatically.</div>
+  <div class="mm-note mm-scope">
+    <div><strong>Looking for CyberHub system updates?</strong><p>Core, Settings and Module Manager update together through Settings. Gallery and other modules are managed here.</p></div>
+    <a class="mm-link" href="/settings#software-updates">Open system updates in Settings &rarr;</a>
   </div>
   <div class="mm-job" id="mmJob"><div class="mm-jobline"><span id="mmJobText"></span><span id="mmPct"></span></div><div class="mm-track"><div class="mm-fill" id="mmFill"></div></div><div class="mm-error" id="mmError"></div></div>
   <div class="mm-restart" id="mmRestart" hidden>
@@ -424,47 +429,101 @@ PAGE = r"""
     <button class="mm-btn" id="mmRestartButton">Restart CyberHub</button>
     <div class="mm-restart-error" id="mmRestartError" role="alert"></div>
   </div>
-  <div class="mm-note" id="mmNote">The base installation contains CyberHub system files and Gallery. Other modules can be added independently.</div>
-  <section class="mm-grid" id="mmGrid"></section>
+  <section class="mm-updates" id="module-updates" aria-labelledby="mmUpdatesTitle">
+    <div class="mm-updates-head">
+      <h2 id="mmUpdatesTitle">Module updates <span class="mm-count" id="mmUpdateCount" hidden></span></h2>
+      <button class="mm-btn" id="mmRefresh">Check for module updates</button>
+    </div>
+    <p class="mm-updates-summary" id="mmUpdateSummary" role="status">Check for module updates to see which installed modules have a newer version.</p>
+    <span class="mm-time" id="mmTime">Not checked yet</span>
+    <div class="mm-note warn" id="mmNote" role="alert" hidden></div>
+    <div class="mm-grid" id="mmUpdatesGrid"></div>
+  </section>
+  <div class="mm-heading"><h2>Manage and discover modules</h2></div>
+  <div class="mm-bar">
+    <div class="mm-tabs" role="group" aria-label="Module filter">
+      <button class="mm-tab active" data-tab="installed" aria-pressed="true">Installed</button>
+      <button class="mm-tab" data-tab="official" aria-pressed="false">Official</button>
+      <button class="mm-tab" data-tab="beta" aria-pressed="false">Beta</button>
+      <button class="mm-tab" data-tab="community" aria-pressed="false">Community</button>
+    </div>
+  </div>
+  <section class="mm-grid" id="mmGrid" aria-label="Module list"></section>
 </main>
 <script>
 (function(){
-  const state={tab:'installed',local:[],catalog:[],busy:false,restarting:false};
+  const state={tab:'installed',local:[],catalog:[],checkedAt:'',checking:false,busy:false,restarting:false};
   const $=id=>document.getElementById(id);
   function e(value){const d=document.createElement('div');d.textContent=value==null?'':value;return d.innerHTML}
   function localMap(){const o={};state.local.forEach(x=>o[x.id]=x);return o}
-  function tags(item,installed){let out='';if(item.channel==='beta')out+='<span class="mm-tag beta">Beta</span>';if(item.publisher_type==='community')out+='<span class="mm-tag community">Community</span>';else out+='<span class="mm-tag">Official</span>';if(installed&&!item.protected)out+='<span class="mm-tag">Installed</span>';if(item.protected)out+='<span class="mm-tag">System</span>';return out}
+  function tags(item,installed){
+    let out='';
+    if(item.channel==='beta')out+='<span class="mm-tag beta">Beta</span>';
+    const publisher=item.publisher_type;
+    if(publisher==='community')out+='<span class="mm-tag community">Community</span>';
+    else if(publisher==='official'||item.protected||publisher==='bundled')out+='<span class="mm-tag">Official</span>';
+    else out+='<span class="mm-tag">Local</span>';
+    if(installed&&!item.protected)out+='<span class="mm-tag">Installed</span>';
+    if(item.protected)out+='<span class="mm-tag">System · updates in Settings</span>';
+    return out;
+  }
+  function card(item,updates=false){
+    const local=localMap()[item.id],installed=!!local||!!item.installed;
+    let action='';
+    if(item.protected) action='<span class="mm-tag">Protected</span>';
+    else if(!updates&&state.tab==='installed') action='<button class="mm-btn danger" data-remove="'+e(item.id)+'">Remove</button>';
+    else if(!item.compatible) action='<button class="mm-btn secondary" disabled>Requires CyberHub '+e(item.minimum_hub_version)+'</button>';
+    else if(item.missing_dependencies&&item.missing_dependencies.length) action='<button class="mm-btn secondary" disabled>Needs '+e(item.missing_dependencies.join(', '))+'</button>';
+    else if(updates) action='<button class="mm-btn update" data-install="'+e(item.id)+'">Update module</button>';
+    else if(installed) action='<button class="mm-btn secondary" disabled>Up to date</button>';
+    else action='<button class="mm-btn" data-install="'+e(item.id)+'">Install module</button>';
+    if(updates)action+='<button class="mm-btn danger" data-remove="'+e(item.id)+'">Remove</button>';
+    const repo=item.repository?'<a class="mm-repo" target="_blank" rel="noopener" href="https://github.com/'+e(item.repository)+'">GitHub</a>':'';
+    const version=updates?'<div class="mm-versions">Installed v'+e(item.installed_version)+' &rarr; <strong>Available v'+e(item.version)+'</strong></div>':'';
+    return '<article class="mm-card"><div class="mm-head"><div class="mm-title">'+e(item.name)+(updates?'':' <span class="mm-version">v'+e(item.version)+'</span>')+'</div></div>'+version+'<div class="mm-desc">'+e(item.summary||item.description||'')+'</div><div class="mm-tags">'+tags(item,installed)+'</div><div class="mm-actions">'+action+repo+'</div></article>';
+  }
   function render(){
-    const locals=localMap();let list=[];
-    if(state.tab==='installed')list=state.local.map(x=>Object.assign({},x,{installed:true,installed_version:x.version}));
-    else list=state.catalog.filter(x=>state.tab==='official'?x.publisher_type==='official'&&x.channel==='stable':state.tab==='beta'?x.channel==='beta':x.publisher_type==='community');
-    if(!list.length){$('mmGrid').innerHTML='<div class="mm-empty">'+(state.tab==='installed'?'No modules are installed.':'Check for updates to load the current module list.')+'</div>';return}
-    $('mmGrid').innerHTML=list.map(item=>{
-      const local=locals[item.id],installed=!!local||!!item.installed,canUpdate=installed&&item.update_available;
-      let action='';
-      if(item.protected) action='<button class="mm-btn secondary" disabled>Protected</button>';
-      else if(state.tab==='installed') action='<button class="mm-btn danger" data-remove="'+e(item.id)+'">Remove</button>';
-      else if(!item.compatible) action='<button class="mm-btn secondary" disabled>Requires Hub '+e(item.minimum_hub_version)+'</button>';
-      else if(item.missing_dependencies&&item.missing_dependencies.length) action='<button class="mm-btn secondary" disabled>Needs '+e(item.missing_dependencies.join(', '))+'</button>';
-      else if(canUpdate) action='<button class="mm-btn" data-install="'+e(item.id)+'">Update</button>';
-      else if(installed) action='<button class="mm-btn secondary" disabled>Up to date</button>';
-      else action='<button class="mm-btn" data-install="'+e(item.id)+'">Install</button>';
-      const repo=item.repository?'<a class="mm-repo" target="_blank" rel="noopener" href="https://github.com/'+e(item.repository)+'">GitHub</a>':'';
-      return '<article class="mm-card"><div class="mm-head"><div class="mm-title">'+e(item.name)+' <span class="mm-version">v'+e(item.version)+'</span></div></div><div class="mm-desc">'+e(item.summary||item.description||'')+'</div><div class="mm-tags">'+tags(item,installed)+'</div><div class="mm-actions">'+action+repo+'</div></article>';
-    }).join('');
+    // All installed channels share one update list, independent of the filter below.
+    const updates=state.catalog.filter(x=>x.installed&&x.update_available&&!x.protected);
+    const updateIds=new Set(updates.map(x=>x.id));
+    $('module-updates').classList.toggle('has-updates',updates.length>0);
+    $('mmUpdateCount').hidden=!updates.length;
+    $('mmUpdateCount').textContent=String(updates.length);
+    $('mmUpdatesGrid').innerHTML=updates.map(item=>card(item,true)).join('');
+    $('mmUpdateSummary').textContent=state.checking?'Checking the module catalog...':!state.checkedAt?
+      'Check for module updates to see which installed modules have a newer version.':updates.length?
+      updates.length+' module update'+(updates.length===1?'':'s')+' available. Choose which to update; requirements are shown on each card.':
+      'No updates found for your installed modules in the catalog. CyberHub system updates are checked separately in Settings.';
+    $('mmTime').textContent=state.checkedAt?'Last successful check: '+new Date(state.checkedAt).toLocaleString():'Not checked yet';
+    let list=state.tab==='installed'?state.local.map(x=>Object.assign({},x,{installed:true,installed_version:x.version})):
+      state.catalog.filter(x=>state.tab==='official'?x.publisher_type==='official'&&x.channel==='stable':state.tab==='beta'?x.channel==='beta':x.publisher_type==='community');
+    list=list.filter(x=>!updateIds.has(x.id));
+    const empty=state.tab==='installed'?(updates.length?'Modules with available updates are shown above.':'No modules are installed.'):
+      !state.checkedAt?'Check for module updates to load the catalog.':'No other modules in this category. Available updates are shown above.';
+    $('mmGrid').innerHTML=list.length?list.map(item=>card(item)).join(''):'<div class="mm-empty">'+empty+'</div>';
     updateControls();
   }
-  function updateControls(){document.querySelectorAll('[data-install],[data-remove]').forEach(b=>b.disabled=state.busy||state.restarting);$('mmRestartButton').disabled=state.busy||state.restarting}
+  function updateControls(){
+    document.querySelectorAll('[data-install],[data-remove]').forEach(b=>b.disabled=state.busy||state.restarting||state.checking);
+    $('mmRestartButton').disabled=state.busy||state.restarting||state.checking;
+    $('mmRefresh').disabled=state.busy||state.restarting||state.checking;
+    $('mmRefresh').textContent=state.checking?'Checking...':'Check for module updates';
+  }
   async function json(url,options){const response=await fetch(url,options);const data=await response.json().catch(()=>({error:'Invalid server response'}));if(!response.ok)throw new Error(data.error||'Request failed');return data}
-  async function loadLocal(){const data=await json('/api/module-manager/local');state.local=data.modules||[];render()}
+  async function loadLocal(){const data=await json('/api/module-manager/local',{cache:'no-store'});state.local=data.modules||[];render()}
+  async function loadCatalog(refresh=false){
+    const data=await json('/api/module-manager/catalog'+(refresh?'?refresh=1':''),{cache:'no-store'});
+    state.catalog=data.modules||[];state.checkedAt=data.checked_at||'';render();
+  }
   async function refresh(){
-    const b=$('mmRefresh');b.disabled=true;b.textContent='Checking...';$('mmNote').classList.remove('warn');
-    try{const data=await json('/api/module-manager/catalog?refresh=1');state.catalog=data.modules||[];$('mmTime').textContent=data.generated_at?'Updated '+data.generated_at:'Module list loaded';$('mmNote').textContent='The list was loaded manually from the verified CyberHub registry. Installations require a restart.';render()}
-    catch(err){$('mmNote').classList.add('warn');$('mmNote').textContent=err.message;}
-    finally{b.disabled=false;b.textContent='Check for updates'}
+    if(state.busy||state.restarting||state.checking)return;
+    state.checking=true;$('mmNote').hidden=true;render();
+    try{await loadCatalog(true)}
+    catch(err){$('mmNote').hidden=false;$('mmNote').textContent='Module update check failed: '+err.message+(state.checkedAt?' Showing results from the last successful check.':' Try again to check for updates.');}
+    finally{state.checking=false;render()}
   }
   async function install(id){
-    if(state.busy||state.restarting)return;
+    if(state.busy||state.restarting||state.checking)return;
     const item=state.catalog.find(x=>x.id===id);if(!item)return;
     let question=(item.installed?'Update ':'Install ')+item.name+' '+item.version+'?';
     if(item.publisher_type==='community')question+='\n\nCommunity modules contain executable code and are not maintained by Cyberdelia.';
@@ -474,9 +533,9 @@ PAGE = r"""
     try{await json('/api/module-manager/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module:id})});poll()}
     catch(err){state.busy=false;updateControls();alert(err.message)}
   }
-  async function remove(id){if(state.busy||state.restarting)return;const item=state.local.find(x=>x.id===id);if(!item||!confirm('Remove '+item.name+'?\n\nA backup is kept. Your module settings and user data are preserved.'))return;state.busy=true;updateControls();try{await json('/api/module-manager/remove',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module:id})});await poll()}catch(err){state.busy=false;updateControls();alert(err.message)}}
+  async function remove(id){if(state.busy||state.restarting||state.checking)return;const item=state.local.find(x=>x.id===id);if(!item||!confirm('Remove '+item.name+'?\n\nA backup is kept. Your module settings and user data are preserved.'))return;state.busy=true;updateControls();try{await json('/api/module-manager/remove',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module:id})});await poll()}catch(err){state.busy=false;updateControls();alert(err.message)}}
   async function restart(){
-    if(state.busy||state.restarting||!confirm('Restart CyberHub? Active tasks will be interrupted. The page will reload automatically.'))return;
+    if(state.busy||state.restarting||state.checking||!confirm('Restart CyberHub? Active tasks will be interrupted. The page will reload automatically.'))return;
     state.restarting=true;updateControls();$('mmRestartError').textContent='';$('mmRestartButton').textContent='Restarting...';
     try{
       const status=await json('/api/module-manager/status');
@@ -498,12 +557,13 @@ PAGE = r"""
     }catch(err){$('mmRestartError').textContent=err.message;state.restarting=false;updateControls();$('mmRestartButton').textContent='Restart CyberHub'}
   }
   async function poll(){
-    try{const s=await json('/api/module-manager/status');state.busy=!!s.running;updateControls();$('mmRestart').hidden=!s.restart_required;const show=s.running||s.stage==='done'||s.stage==='error';$('mmJob').classList.toggle('show',show);$('mmJobText').textContent=s.message||'';$('mmPct').textContent=s.percent?s.percent+'%':'';$('mmFill').style.width=(s.percent||0)+'%';$('mmError').textContent=s.error||'';if(s.running){setTimeout(poll,600)}else if(s.stage==='done'){await loadLocal();if(state.catalog.length)refresh()}}
+    try{const s=await json('/api/module-manager/status');state.busy=!!s.running;updateControls();$('mmRestart').hidden=!s.restart_required;const show=s.running||s.stage==='done'||s.stage==='error';$('mmJob').classList.toggle('show',show);$('mmJobText').textContent=s.message||'';$('mmPct').textContent=s.percent?s.percent+'%':'';$('mmFill').style.width=(s.percent||0)+'%';$('mmError').textContent=s.error||'';if(s.running){setTimeout(poll,600)}else if(s.stage==='done'){await loadLocal();await loadCatalog()}}
     catch(err){$('mmJob').classList.add('show');$('mmError').textContent=err.message}
   }
-  document.addEventListener('click',ev=>{const tab=ev.target.closest('[data-tab]');if(tab){state.tab=tab.dataset.tab;document.querySelectorAll('.mm-tab').forEach(x=>x.classList.toggle('active',x===tab));render();return}const add=ev.target.closest('[data-install]');if(add)install(add.dataset.install);const del=ev.target.closest('[data-remove]');if(del)remove(del.dataset.remove)});
+  document.addEventListener('click',ev=>{const tab=ev.target.closest('[data-tab]');if(tab){state.tab=tab.dataset.tab;document.querySelectorAll('.mm-tab').forEach(x=>{x.classList.toggle('active',x===tab);x.setAttribute('aria-pressed',String(x===tab))});render();return}const add=ev.target.closest('[data-install]');if(add)install(add.dataset.install);const del=ev.target.closest('[data-remove]');if(del)remove(del.dataset.remove)});
   $('mmRestartButton').addEventListener('click',restart);
-  $('mmRefresh').addEventListener('click',refresh);loadLocal().catch(err=>{$('mmNote').textContent=err.message;$('mmNote').classList.add('warn')});poll();
+  $('mmRefresh').addEventListener('click',refresh);
+  Promise.all([loadLocal(),loadCatalog()]).catch(err=>{$('mmNote').hidden=false;$('mmNote').textContent='Could not load module information: '+err.message});poll();
 })();
 </script>
 """

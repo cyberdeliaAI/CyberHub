@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from core.module_store import ModuleStore
 from modules.module_manager import ModuleManagerModule
@@ -94,6 +94,90 @@ class ModuleStoreTests(unittest.TestCase):
 
 
 class ModuleCatalogTests(unittest.TestCase):
+    def manager(self, installed=None):
+        module = ModuleManagerModule(SimpleNamespace(VERSION="1.4.1"))
+        module._installed = Mock(return_value=installed or [])
+        module._fetch_catalog = Mock(return_value=self.valid_catalog())
+        return module
+
+    def test_only_newer_installed_modules_count_as_updates(self):
+        for installed, expected in [
+            ([], False),
+            ([{"id": "gallery", "version": "1.2.12"}], True),
+            ([{"id": "gallery", "version": "1.2.13"}], False),
+            ([{"id": "gallery", "version": "1.2.14"}], False),
+            ([{"id": "gallery", "version": "1.2.12", "protected": True}], False),
+        ]:
+            with self.subTest(installed=installed):
+                module = self.manager(installed)
+                item = module._catalog_response(self.valid_catalog())["modules"][0]
+                self.assertEqual(bool(item["update_available"]), expected)
+
+    def test_blocked_updates_remain_visible_with_requirements(self):
+        module = self.manager([{"id": "gallery", "version": "1.0"}])
+        catalog = self.valid_catalog()
+        catalog["modules"][0].update(minimum_hub_version="9.0", dependencies=["viewer"])
+        item = module._catalog_response(catalog)["modules"][0]
+        self.assertTrue(item["update_available"])
+        self.assertFalse(item["compatible"])
+        self.assertEqual(item["missing_dependencies"], ["viewer"])
+
+    def test_opening_catalog_is_local_and_refresh_is_explicit(self):
+        module = self.manager()
+        handler = Mock()
+        module._api_catalog(handler, {})
+        module._fetch_catalog.assert_not_called()
+        self.assertEqual(handler.respond_json.call_args.args[0]["checked_at"], "")
+        module._api_catalog(handler, {"refresh": ["1"]})
+        module._fetch_catalog.assert_called_once()
+        checked_at = handler.respond_json.call_args.args[0]["checked_at"]
+        self.assertTrue(checked_at)
+        module._api_catalog(handler, {})
+        module._fetch_catalog.assert_called_once()
+        self.assertEqual(handler.respond_json.call_args.args[0]["checked_at"], checked_at)
+
+    def test_cached_results_reflect_installation_and_survive_failed_check(self):
+        module = self.manager([{"id": "gallery", "version": "1.2.12"}])
+        handler = Mock()
+        module._api_catalog(handler, {"refresh": ["1"]})
+        checked_at = handler.respond_json.call_args.args[0]["checked_at"]
+        self.assertTrue(handler.respond_json.call_args.args[0]["modules"][0]["update_available"])
+        module._installed.return_value = [{"id": "gallery", "version": "1.2.13"}]
+        module._fetch_catalog.side_effect = ValueError("Offline")
+        module._api_catalog(handler, {"refresh": ["1"]})
+        self.assertEqual(handler.respond_json.call_args.kwargs["status"], 502)
+        module._api_catalog(handler, {})
+        data = handler.respond_json.call_args.args[0]
+        self.assertFalse(data["modules"][0]["update_available"])
+        self.assertEqual(data["checked_at"], checked_at)
+        self.assertEqual(module._fetch_catalog.call_count, 2)
+
+    def test_empty_successful_catalog_is_not_treated_as_unchecked(self):
+        module = self.manager()
+        module._fetch_catalog.return_value = {"modules": []}
+        handler = Mock()
+        module._api_catalog(handler, {"refresh": ["1"]})
+        module._api_catalog(handler, {})
+        self.assertTrue(handler.respond_json.call_args.args[0]["checked_at"])
+        module._fetch_catalog.assert_called_once()
+
+    def test_installed_package_version_is_used_before_restart(self):
+        hub = SimpleNamespace(module_store=Mock(), registry=SimpleNamespace(modules={}))
+        hub.module_store.PROTECTED = {"settings", "module_manager"}
+        hub.module_store.records.return_value = {
+            "gallery": {"managed": True, "version": "1.2.13", "channel": "stable"},
+            "settings": {"managed": False, "version": "1.0"},
+        }
+        module = ModuleManagerModule(hub)
+        gallery = type("GalleryModule", (), {"name": "Gallery", "version": "1.2.12", "release_stage": "beta"})
+        with patch("modules.module_manager.available_module_classes", return_value=[
+            ("gallery", gallery), ("settings", SettingsModule),
+        ]):
+            installed = {item["id"]: item for item in module._installed()}
+        self.assertEqual(installed["gallery"]["version"], "1.2.13")
+        self.assertEqual(installed["gallery"]["channel"], "stable")
+        self.assertEqual(installed["settings"]["version"], SettingsModule.version)
+
     def valid_catalog(self):
         return {
             "schema": 1,

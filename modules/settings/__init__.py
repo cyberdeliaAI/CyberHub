@@ -83,7 +83,7 @@ from core.ai_connection import public_connection
 
 class SettingsModule(Module):
     name = "Settings"
-    version = "1.5.1"
+    version = "1.5.2"
     icon = "\u2699"   # ⚙
     description = "Configure the hub and individual modules."
     show_in_tabs = False     # gear icon in topbar handles navigation
@@ -1934,11 +1934,12 @@ SETTINGS_BODY = r"""
         <div class="status-line" id="civitaiStatus"></div>
     </div>
 
-    <div class="settings-section">
-        <h2><span class="section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg></span>Software updates</h2>
+    <div class="settings-section" id="software-updates">
+        <h2><span class="section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg></span>CyberHub system updates</h2>
+        <p class="desc">Updates Core, Settings and Module Manager together. For Gallery and other individual modules, <a class="help-link" href="/module_manager#module-updates">open module updates in Module Manager</a>.</p>
         <div class="settings-row">
-            <div class="settings-label">Check GitHub for updates<div class="desc">Only connects to the official CyberHub GitHub repository when you click this button. CyberHub never checks automatically.</div></div>
-            <button class="action-btn" id="githubUpdateCheckBtn" onclick="checkCyberHubUpdates()">Check for updates</button>
+            <div class="settings-label">Check for CyberHub system updates<div class="desc">Only connects to the official CyberHub GitHub repository when you click this button. CyberHub never checks automatically.</div></div>
+            <button class="action-btn" id="githubUpdateCheckBtn" onclick="checkCyberHubUpdates()">Check for system updates</button>
         </div>
         <div class="status-line" id="githubUpdateStatus">No update check has been performed.</div>
         <div class="update-release" id="githubUpdateRelease" style="display:none">
@@ -2952,11 +2953,11 @@ function renderCyberHubUpdate(data) {
     }
 
     list.innerHTML = '';
-    var available = (data.packages || []).filter(function(item) { return item.update_available; });
+    var available = (data.packages || []).filter(function(item) { return item.type === 'hub' && item.update_available; });
     if (!available.length) {
         var empty = document.createElement('div');
         empty.className = 'update-empty';
-        empty.textContent = 'CyberHub and the installed modules are up to date.';
+        empty.textContent = 'CyberHub system is up to date. Check Module Manager for individual module updates.';
         list.appendChild(empty);
     } else {
         available.forEach(function(item) {
@@ -2966,7 +2967,7 @@ function renderCyberHubUpdate(data) {
             info.className = 'update-package-info';
             var name = document.createElement('div');
             name.className = 'update-package-name';
-            name.textContent = item.name + (item.type === 'hub' ? ' (complete update)' : '');
+            name.textContent = item.name + ' (system update)';
             var version = document.createElement('div');
             version.className = 'update-package-version';
             version.textContent = item.current_version + '  →  ' + item.version + (item.size ? '  ·  ' + formatUpdateBytes(item.size) : '');
@@ -2975,12 +2976,12 @@ function renderCyberHubUpdate(data) {
             if (!item.compatible) {
                 var note = document.createElement('div');
                 note.className = 'update-package-note';
-                note.textContent = 'Requires CyberHub ' + item.minimum_hub_version + ' or newer. Install the complete update first.';
+                note.textContent = 'Requires CyberHub ' + item.minimum_hub_version + ' or newer. Update CyberHub first.';
                 info.appendChild(note);
             }
             var button = document.createElement('button');
-            button.className = 'action-btn' + (item.type === 'module' ? ' secondary' : '');
-            button.textContent = item.type === 'hub' ? 'Install update' : 'Install module';
+            button.className = 'action-btn';
+            button.textContent = 'Install system update';
             button.dataset.updateAsset = item.asset;
             button.dataset.updateName = item.name;
             button.dataset.updateVersion = item.version;
@@ -3017,7 +3018,7 @@ async function checkCyberHubUpdates() {
         status.innerHTML = '<span class="import-summary err">Update check failed: ' + escHtml(e.message) + '</span>';
     } finally {
         button.disabled = false;
-        button.textContent = 'Check for updates';
+        button.textContent = 'Check for system updates';
     }
 }
 
