@@ -27,10 +27,11 @@ import traceback
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from core import ModuleRegistry, available_module_classes, module_key_from_class
+from core import ModuleRegistry, available_module_classes, module_key_from_class, module_runtime_key_from_class
 from core.civitai import CivitaiLookup
 from core.module_store import ModuleStore
 from core.ai_connection import AIConnection
+from core.update_notifications import UpdateNotifications
 from core.server import Settings, HubHandler, ThreadedHTTPServer
 
 RESOURCES_DIR = os.path.join(HERE, "resources")
@@ -93,7 +94,7 @@ class Hub:
     lookup through this object.
     """
 
-    VERSION = "1.4.2"
+    VERSION = "1.5.0"
 
     # Subdirectories under resources/ that should always exist. Modules can
     # rely on these being present even if the user wipes the folder.
@@ -109,6 +110,7 @@ class Hub:
         self.resources_dir = RESOURCES_DIR
         self.data_dir = DATA_DIR
         self.module_store = ModuleStore(HERE, DATA_DIR)
+        self.update_notifications = UpdateNotifications(self)
         # Compatibility alias for modules contributed against the Docker PR.
         self.settings_dir = DATA_DIR
         self.is_container = os.environ.get("CYBERHUB_DOCKER", "").lower() in {
@@ -155,13 +157,14 @@ def load_modules(hub):
     always be configured and repaired.
     """
     for name, cls in available_module_classes():
-        key = module_key_from_class(cls)
+        key = module_runtime_key_from_class(cls)
         version = getattr(cls, "version", "1.0")
         release_stage = getattr(cls, "release_stage", "stable")
         hub.module_store.adopt(
             name, name=getattr(cls, "name", name), version=version, channel=release_stage,
         )
-        if key not in {"settings", "module_manager"} and not hub.settings.is_module_enabled(key):
+        if key not in {"settings", "module_manager"} and not hub.settings.is_module_enabled(
+                key, legacy_key=module_key_from_class(cls)):
             print(f"[MODULE] {cls.name} v{version}: disabled")
             continue
 
@@ -328,6 +331,8 @@ def main():
 
     print(f"[HUB] {settings.get('title', 'CyberHub')} v{hub.VERSION} starting…")
     load_modules(hub)
+    hub.update_notifications.restore_catalog()
+    hub.update_notifications.start()
 
     if not hub.registry.modules:
         print("[ERROR] No modules loaded — nothing to serve.")

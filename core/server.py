@@ -27,6 +27,7 @@ DEFAULT_SETTINGS = {
     "title": "CyberHub",
     "startup": "gallery",
     "theme": "dark",
+    "updates": {"automatic_check": False},
     "port": 8899,
     "network": {
         "listen_lan": False,
@@ -132,9 +133,12 @@ class Settings:
             self.data.setdefault("modules", {}).setdefault(module_key, {}).update(values)
         self.save()
 
-    def is_module_enabled(self, module_key):
+    def is_module_enabled(self, module_key, legacy_key=None):
         # Default: enabled. Settings module is always on (enforced in hub.py).
-        return self.get_module(module_key).get("enabled", True)
+        config = self.get_module(module_key)
+        if "enabled" not in config and legacy_key and legacy_key != module_key:
+            config = self.get_module(legacy_key)
+        return config.get("enabled", True)
 
 
 # ─── Shared HTML shell ───────────────────────────────────────────────────────
@@ -303,6 +307,38 @@ function copyFallback(text) { try { var ta=document.createElement('textarea'); t
 function copyText(text, btn) { var orig=btn?btn.textContent:''; function ok(){if(btn){btn.textContent='\\u2713 Copied';setTimeout(function(){btn.textContent=orig},1500);}} if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(ok).catch(function(){copyFallback(text)&&ok();});} else { if(copyFallback(text)) ok(); } }
 """
 
+_UPDATE_NOTIFICATION_JS = r"""
+/* Read local notification results only; this endpoint never checks GitHub. */
+(function() {
+    var timer;
+    window.hubRefreshUpdateNotifications = async function() {
+        clearTimeout(timer);
+        try {
+            var response = await fetch('/api/updates/status', {cache:'no-store'});
+            if (!response.ok) return;
+            var data = await response.json();
+            var count = Number(data.count) || 0;
+            document.querySelectorAll('[data-hub-update-count]').forEach(function(el) {
+                el.hidden = !count;
+                el.textContent = String(count);
+                el.title = count + ' update' + (count === 1 ? '' : 's') + ' available';
+            });
+            document.querySelectorAll('[data-hub-update-summary]').forEach(function(el) {
+                el.hidden = !count;
+                el.textContent = count + ' update' + (count === 1 ? '' : 's') + ' available';
+            });
+            if (typeof window.hubRenderUpdateNotifications === 'function') window.hubRenderUpdateNotifications(data);
+            timer = setTimeout(window.hubRefreshUpdateNotifications, data.checking ? 1500 : 60000);
+        } catch (_) {
+            timer = setTimeout(window.hubRefreshUpdateNotifications, 60000);
+        }
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', window.hubRefreshUpdateNotifications);
+    else window.hubRefreshUpdateNotifications();
+})();
+"""
+_BASE_JS += _UPDATE_NOTIFICATION_JS
+
 
 def build_module_menu(registry, active_key):
     """Return the hamburger menu HTML (button + dropdown panel).
@@ -359,6 +395,11 @@ def build_module_menu(registry, active_key):
             '<span class="desc">Install and update modules</span></span></a>'
         )
     panel_html += '</div>'
+    if getattr(getattr(registry.get("settings"), "hub", None), "update_notifications", None):
+        panel_html += (
+            '<a href="/settings#update-notifications" class="hub-menu-item hub-update-summary" '
+            'data-hub-update-summary hidden style="grid-column:1 / -1"></a>'
+        )
 
     active_label = ""
     if active_mod:
@@ -367,7 +408,8 @@ def build_module_menu(registry, active_key):
 
     return (
         '<div class="hub-menu">'
-        f'<button class="hub-menu-btn" aria-label="Modules" type="button">{hamburger_svg}</button>'
+        f'<button class="hub-menu-btn" aria-label="Modules" type="button" style="position:relative">{hamburger_svg}'
+        '<span class="hub-update-count" data-hub-update-count hidden></span></button>'
         f'<div class="hub-menu-panel">{panel_html}</div>'
         '</div>'
         + active_label
@@ -441,6 +483,9 @@ def build_topbar(registry, settings, active_key, extra_html="", controls_html=""
 # build_topbar(), so every page (build_shell modules + the gallery) gets it.
 HELP_OVERLAY_HTML = """
 <style>
+    [data-hub-update-count][hidden], [data-hub-update-summary][hidden] { display:none !important; }
+    .hub-update-count { position:absolute;right:-5px;top:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:var(--accent);color:var(--bg-darkest);font:600 10px/16px var(--mono);text-align:center; }
+    .hub-update-summary { color:var(--accent) !important;font-size:12px; }
 .help-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:6000;padding:24px}
 .help-overlay.open{display:flex}
 .help-dialog{background:var(--bg-panel);border:1px solid var(--border-light);border-radius:12px;max-width:740px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.5)}

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "verified_on": "2026-10-15",
+  "model": {
+    "path": "resources/danbooru/model_fp16.onnx",
+    "bytes": 126110506,
+    "sha256": "e561c01bc237f011be7d54c8448fe5ef006df7f96c73d0ef4a3cedbb3f5dbcd1",
+    "repository": "mmmm3/danbooru-autotagger-onnx",
+    "revision": "d777ba70d4611d234dbc7cf18f7da41c5381f728",
+    "license": "MIT",
+    "upstream_project": "https://github.com/danbooru/autotagger",
+    "architecture": "ResNet-152",
+    "input": "float16 [batch,3,224,224]",
+    "output_labels": 5501
+  },
+  "labels": {
+    "path": "resources/danbooru/tags.json",
+    "sha256": "40bd6c475d49f5a1f5ef67c5fd4b9b0183e734519a20840779514260bc0da360",
+    "upstream": "https://github.com/danbooru/autotagger/blob/1edfba77c94d77246595d684c501da3abb8b1ccc/data/tags.json",
+    "values_and_order_match": true
+  },
+  "license_file": "licenses/Danbooru-Autotagger-MIT.txt"
+}

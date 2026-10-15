@@ -11,7 +11,7 @@ import tempfile
 import threading
 from urllib.parse import urlparse
 
-from core import Module, available_module_classes, module_key_from_class
+from core import Module, available_module_classes, module_runtime_key_from_class
 from core.server import build_shell
 from modules.settings import SettingsModule, _is_newer_version
 
@@ -27,7 +27,7 @@ REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 
 class ModuleManagerModule(Module):
     name = "Module Manager"
-    version = "1.1.0"
+    version = "1.1.1"
     description = "Install, update and remove CyberHub modules manually."
     order = 5
     show_in_tabs = True
@@ -92,7 +92,7 @@ class ModuleManagerModule(Module):
                 "publisher_type": record.get("publisher_type") or "local",
                 "repository": record.get("repository") or "",
                 "protected": folder in self.hub.module_store.PROTECTED,
-                "enabled": module_key_from_class(cls) in self.hub.registry.modules,
+                "enabled": module_runtime_key_from_class(cls) in self.hub.registry.modules,
             })
         return sorted(output, key=lambda item: (not item["protected"], item["name"].lower()))
 
@@ -265,6 +265,11 @@ class ModuleManagerModule(Module):
             "modules": modules,
         }
 
+    def _remember_catalog(self, catalog):
+        with self._lock:
+            self._catalog = {item["id"]: item for item in catalog["modules"]}
+            self._catalog_meta = catalog
+
     def _api_catalog(self, handler, qs):
         refresh = str(qs.get("refresh", [""])[0]).lower() in {"1", "true", "yes"}
         try:
@@ -272,9 +277,10 @@ class ModuleManagerModule(Module):
             if refresh:
                 catalog = self._fetch_catalog()
                 catalog["checked_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
-                with self._lock:
-                    self._catalog = {item["id"]: item for item in catalog["modules"]}
-                    self._catalog_meta = catalog
+                self._remember_catalog(catalog)
+                notifications = getattr(self.hub, "update_notifications", None)
+                if notifications:
+                    notifications.remember("modules", catalog)
             with self._lock:
                 catalog = dict(self._catalog_meta)
                 catalog["modules"] = list(self._catalog.values())
@@ -514,6 +520,7 @@ PAGE = r"""
   async function loadCatalog(refresh=false){
     const data=await json('/api/module-manager/catalog'+(refresh?'?refresh=1':''),{cache:'no-store'});
     state.catalog=data.modules||[];state.checkedAt=data.checked_at||'';render();
+    if(typeof window!=='undefined'&&window.hubRefreshUpdateNotifications)window.hubRefreshUpdateNotifications();
   }
   async function refresh(){
     if(state.busy||state.restarting||state.checking)return;

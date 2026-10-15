@@ -11,6 +11,7 @@ env/
 data/
 settings.json
 installed-modules.json
+update-notifications.json*
 cyberdelia.db
 cyberdelia.db-shm
 cyberdelia.db-wal

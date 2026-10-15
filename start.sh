@@ -12,17 +12,24 @@ if [ ! -x "$VENV_DIR/bin/python" ] && [ -x "venv/bin/python" ]; then
     VENV_DIR="venv"
 fi
 
+NEEDS_ONNX=0
+if [ -d "modules/upscaler" ] || [ -d "modules/gallery_auto_tagger" ]; then
+    NEEDS_ONNX=1
+fi
+
 if [ ! -x "$VENV_DIR/bin/python" ]; then
     # Find a supported Python 3. Prefer versions with reliable wheels for
     # Pillow/numpy/OpenCV.
     PYTHON=""
     FOUND_PYTHONS=""
-    for cmd in "${CYBERHUB_PYTHON:-}" python3.12 python3.11 python3.10 python3.13 python3 python; do
+    for cmd in "${CYBERHUB_PYTHON:-}" python3.12 python3.11 python3.10 python3.13 python3.14 python3 python; do
         [ -n "$cmd" ] || continue
         if command -v "$cmd" &>/dev/null; then
             version=$("$cmd" -c "import sys; print('.'.join(map(str, sys.version_info[:3])))" 2>/dev/null || true)
             [ -n "$version" ] && FOUND_PYTHONS="${FOUND_PYTHONS}${cmd} (${version}) "
-            ok=$("$cmd" -c "import sys; print('1' if sys.version_info >= (3,10) and sys.version_info < (3,14) else '0')" 2>/dev/null || echo "0")
+            # Intel macOS has no Python 3.14 ONNX Runtime wheel. Other platforms
+            # and minimal installs without Python ONNX modules retain 3.14.
+            ok=$("$cmd" -c "import sys, platform; unsupported_onnx = $NEEDS_ONNX and platform.system() == 'Darwin' and platform.machine() == 'x86_64' and sys.version_info >= (3,14); print('1' if sys.version_info >= (3,10) and sys.version_info < (3,15) and not unsupported_onnx else '0')" 2>/dev/null || echo "0")
             if [ "$ok" = "1" ]; then
                 PYTHON="$cmd"
                 break
@@ -32,7 +39,10 @@ if [ ! -x "$VENV_DIR/bin/python" ]; then
 
     if [ -z "$PYTHON" ]; then
         echo "[ERROR] Supported Python not found."
-        echo "[ERROR] CyberHub currently supports Python 3.10, 3.11, 3.12 or 3.13."
+        echo "[ERROR] CyberHub currently supports Python 3.10, 3.11, 3.12, 3.13 or 3.14."
+        if [ "$NEEDS_ONNX" = "1" ]; then
+            echo "[INFO] Intel macOS with Auto Tagger/Upscaler needs Python 3.10-3.13; Python 3.12 or 3.13 is recommended."
+        fi
         if [ -n "$FOUND_PYTHONS" ]; then
             echo "[INFO] Python commands found: $FOUND_PYTHONS"
         else
@@ -55,6 +65,16 @@ if [ ! -x "$VENV_DIR/bin/python" ]; then
     fi
 fi
 
+# Diagnose this known wheel gap before pip attempts a failing installation.
+# Preserve a deliberately built/importable runtime in an existing environment.
+if [ "$NEEDS_ONNX" = "1" ] && "$VENV_DIR/bin/python" -c "import sys, platform; raise SystemExit(0 if platform.system() == 'Darwin' and platform.machine() == 'x86_64' and sys.version_info >= (3,14) else 1)" 2>/dev/null; then
+    if ! "$VENV_DIR/bin/python" -c "import onnxruntime" >/dev/null 2>&1; then
+        echo "[ERROR] ONNX Runtime has no Python 3.14 wheel for Intel macOS."
+        echo "[INFO] Recreate this installation's $VENV_DIR with Python 3.12 or 3.13, then run start.sh again."
+        exit 1
+    fi
+fi
+
 # Keep base dependencies and the requirements of installed modules up to date.
 echo "[SETUP] Checking Python packages..."
 deps_failed=0
@@ -72,7 +92,7 @@ if [ "$deps_failed" = "0" ]; then
         fi
     done
 fi
-if [ -d "modules/upscaler" ] || [ -d "modules/gallery_auto_tagger" ]; then
+if [ "$NEEDS_ONNX" = "1" ]; then
     if [ "$deps_failed" = "0" ] && ! "$VENV_DIR/bin/python" -c "import onnxruntime" >/dev/null 2>&1; then
         echo "[SETUP] Installing ONNX Runtime CPU fallback..."
         if ! "$VENV_DIR/bin/python" -m pip install -q "onnxruntime>=1.17"; then

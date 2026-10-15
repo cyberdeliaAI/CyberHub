@@ -11,6 +11,15 @@ Module Manager and Gallery, so it is useful immediately without becoming a
 large all-in-one package. Additional stable and beta modules are installed,
 updated or removed individually from Module Manager.
 
+**Lite 1.5.0** contains Core, Settings 1.6.0, Module Manager 1.1.1 and Gallery
+1.2.16. A separate system updater preserves independently installed modules.
+A **Full Bundle** with all 16 official modules is prepared separately for Civitai,
+including the two labeled beta modules. Lite and Full use the same Core and can
+use the same GitHub system updater; official module updates remain independent.
+See [LITE-BUNDLE.md](LITE-BUNDLE.md) and [FULL-BUNDLE.md](FULL-BUNDLE.md) for their
+installation layouts. Full bundles are for new installations and are not system
+update packages.
+
 ## Highlights
 
 - **Module Manager**: manually check the official catalog and choose exactly
@@ -37,10 +46,13 @@ InvokeAI, NovelAI, SwarmUI, Fooocus variants and Easy Diffusion.
 
 ## Install
 
-For a new installation, download **cyberhub_v1.4.2.zip** and extract it to its
-own folder. It contains Core 1.4.2, Settings 1.5.2, Module Manager 1.1.0 and
-Gallery 1.2.14. Optional modules and newer Gallery releases are available through
-Module Manager.
+For a new installation, download
+[**cyberhub_lite_v1.5.0.zip**](https://github.com/cyberdeliaAI/CyberHub/releases/download/v1.5.0/cyberhub_lite_v1.5.0.zip)
+and extract it to its own folder. It contains Core 1.5.0, Settings 1.6.0,
+Module Manager 1.1.1 and Gallery 1.2.16. Add optional modules through Module Manager.
+For an existing installation, use the separate
+[system update](https://github.com/cyberdeliaAI/CyberHub/releases/download/v1.5.0/cyberhub_update_v1.5.0.zip)
+or Settings → CyberHub system updates.
 
 - **Windows:** double-click `start.bat`.
 - **macOS:** open a terminal in the CyberHub folder and run `./start.sh`.
@@ -54,7 +66,11 @@ package first if needed:
 sudo apt install python3 python3-venv python3-pip
 ```
 
-CyberHub supports Python 3.10 through 3.13. The start script creates a local
+The current source launchers accept Python 3.10 through 3.14. Python 3.14 has been
+tested locally on macOS; Windows/Linux behavior still needs native verification.
+Intel macOS with Auto Tagger/Upscaler requires Python 3.10–3.13 because ONNX Runtime
+does not provide an Intel macOS Python 3.14 wheel; Python 3.12 or 3.13 is recommended.
+The published 1.4.2 launchers accept Python 3.10 through 3.13. The start script creates a local
 virtual environment and installs the required Python packages. Open the printed
 local URL, then use Settings to add your image folders and configure modules.
 Detailed Linux and manual installation instructions are available in the
@@ -65,8 +81,12 @@ system updates**. Install or update individual modules from **Module Manager ->
 Check for module updates**. Module Manager groups available updates above the
 module list, showing the installed and available versions. Core, Settings and
 Module Manager update together through Settings; both pages link to the other
-update area. Both checks are always manual actions: CyberHub does not contact
-GitHub at startup or in the background. Downloads are tied to their declared GitHub
+update area. Checks remain manual by default. **Settings -> Update notifications**
+can optionally check release information at startup, at most once per 24 hours per
+catalog. Its **Check now** button checks both system and installed-module updates.
+A quiet menu badge shows available updates; results are saved locally and remain
+available offline. No update packages are downloaded or installed automatically.
+Downloads are tied to their declared GitHub
 Release repository and checked against a published SHA-256 digest. Existing
 files are backed up and a restart is requested after installation.
 
@@ -145,9 +165,10 @@ starter release combines Core with Gallery for a complete first-run experience.
 
 The central
 [`CyberHub-Registry`](https://github.com/cyberdeliaAI/CyberHub-Registry)
-contains the catalog that Module Manager reads only after the user clicks
-**Check for module updates**. Official and community ownership is shown separately
-from stable or beta status.
+contains the catalog used by **Check for module updates** and optional startup
+update notifications. Checks are manual by default; installation is always
+explicit. Official and community ownership is shown separately from stable or
+beta status.
 
 Large or downloaded runtime assets are intentionally kept out of source control,
 including some ONNX models and downloaded fonts. The current Civitai

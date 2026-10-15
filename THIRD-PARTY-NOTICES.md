@@ -4,8 +4,10 @@ CyberHub's own code and protected assets are licensed under the CyberHub End Use
 License Agreement. This file lists third-party components distributed with, or
 downloaded by, CyberHub. Each keeps its own license, which governs that component.
 
-Items marked **[downloaded]** are not shipped inside the zip; CyberHub fetches them
-on first run and they then become part of the running application.
+Items marked **[downloaded]** are fetched separately. The Full Bundle already
+includes the browser ONNX runtime and the official Danbooru/Upscaler model assets;
+fonts and the optional Gallery Auto Tagger model retain their separate download
+behavior. Each component keeps its own terms.
 
 ---
 
@@ -44,15 +46,25 @@ GPL-3.0, and its source is included.
 ### Tailwind CSS (`resources/prompt-engineer/tailwind.css`, `tailwind.js`)
 © Tailwind Labs, Inc. — **MIT License** (see MIT text below).
 
-### ONNX Runtime Web (`ort.min.js`, `ort-wasm-simd-threaded.jsep.*`) — **[downloaded]**
-© Microsoft Corporation — **MIT License** (see MIT text below). Fetched on first run
-for the Danbooru auto-tagger.
+### ONNX Runtime Web (`ort.min.js`, `ort-wasm-simd-threaded.jsep.*`)
+© Microsoft Corporation — **MIT License** (see MIT text below). The Full Bundle
+includes version 1.21.0 for Danbooru; minimal distributions can fetch it on first run.
 
 ### Danbooru auto-tagger model (`resources/danbooru/model_fp16.onnx`, `tags.csv`, `tags.json`)
-An ONNX image-tagging model and its tag vocabulary. **License: see the model's
-upstream source.** ⚠️ *Confirm and fill in the exact model, author, and license here
-before publishing CyberHub* (WD-style taggers are commonly Apache-2.0, but verify the
-specific model you ship). Danbooru tag *names* are factual labels.
+The bundled file is the FP16 ONNX conversion by **mmmm3** of
+[Danbooru Autotagger](https://github.com/danbooru/autotagger), a ResNet-152 tagger.
+The converter publishes it under **MIT**:
+https://huggingface.co/mmmm3/danbooru-autotagger-onnx/tree/d777ba70d4611d234dbc7cf18f7da41c5381f728
+
+The exact bundled `model_fp16.onnx` is 126,110,506 bytes, SHA-256
+`e561c01bc237f011be7d54c8448fe5ef006df7f96c73d0ef4a3cedbb3f5dbcd1`,
+matching the upstream LFS object. The 5,501 output labels match the values and
+order in Danbooru Autotagger's `data/tags.json` at revision
+`1edfba77c94d77246595d684c501da3abb8b1ccc`. Danbooru Autotagger's MIT text is
+included in `licenses/Danbooru-Autotagger-MIT.txt`. The separate `tags.csv` is the
+toolkit's Danbooru tag lookup data, not the model's output-label ordering.
+Detailed artifact provenance is recorded in
+`resources/provenance/danbooru-autotagger.json`.
 
 ### WD EVA02-Large Tagger v3 — **[downloaded]**
 The optional Gallery Auto Tagger downloads `model.onnx` and `selected_tags.csv`
@@ -63,8 +75,10 @@ https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3
 archives; it is downloaded only after the user clicks **Install model**.
 
 ### Prompting guides (`resources/guides/*.pdf`)
-⚠️ *If these PDFs are your own work, no third-party notice is needed and you may
-remove this entry. If they are from another author, add their name and terms here.*
+The **Illustrious / NoobAI Prompting Master Guide** and **Pony Prompting Master
+Guide** are original Cyberdelia works. Authorship was confirmed by the project
+owner on 15 October 2026. They are covered by CyberHub's own terms in `LICENSE.md`;
+no third-party authorship or external license is claimed for these PDFs.
 
 ---
 
@@ -78,8 +92,10 @@ tenacity (Apache-2.0).
 
 The separately distributed **Upscaler beta** module can run user-supplied ONNX
 models. Its package also bundles `resources/upscalers/Real-ESRGAN-x4plus.onnx`.
-Real-ESRGAN is BSD-3-Clause, © Xintao Wang et al.; other ESRGAN/Real-ESRGAN
-models remain under their respective authors' terms.
+Real-ESRGAN is **BSD-3-Clause**, © 2021 Xintao Wang. Its full upstream license
+is included in `licenses/Real-ESRGAN-BSD-3-Clause.txt`:
+https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE
+Other ESRGAN/Real-ESRGAN models remain under their respective authors' terms.
 
 ---
 

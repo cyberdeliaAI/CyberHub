@@ -9,7 +9,7 @@ Per-module settings are driven by each module's `settings_schema` dict.
 Supported field types: string, folder, file, number, bool, select.
 """
 
-from core import Module, available_module_classes, module_key_from_class
+from core import Module, available_module_classes, module_key_from_class, module_runtime_key_from_class
 from core.server import build_shell, module_icon_html
 from datetime import datetime
 from io import BytesIO
@@ -33,6 +33,85 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 UPDATE_REPOSITORY = "cyberdeliaAI/CyberHub"
 UPDATE_API_ROOT = f"https://api.github.com/repos/{UPDATE_REPOSITORY}"
 UPDATE_CATALOG_ASSET = "cyberhub-update.json"
+
+
+def _system_gpus():
+    """List host display/compute adapters without choosing an inference device."""
+    import platform
+    import subprocess
+
+    try:
+        if platform.system() == "Windows":
+            try:
+                out = subprocess.check_output(
+                    ["wmic", "path", "win32_VideoController", "get", "name"],
+                    text=True, timeout=3)
+                names = [line.strip() for line in out.splitlines()
+                         if line.strip() and line.strip() != "Name"]
+                if names:
+                    return names
+            except (OSError, subprocess.SubprocessError):
+                pass
+            # WMIC is absent on recent Windows installations.
+            out = subprocess.check_output(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+                 "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"],
+                text=True, timeout=5)
+            return [line.strip() for line in out.splitlines() if line.strip()]
+        if platform.system() == "Linux":
+            out = subprocess.check_output(["lspci"], text=True, timeout=3)
+            return [line.split(":", 2)[-1].strip() for line in out.splitlines()
+                    if re.search(r"\b(?:VGA compatible controller|3D controller|Display controller):", line)]
+        if platform.system() == "Darwin":
+            out = subprocess.check_output(
+                ["system_profiler", "SPDisplaysDataType"], text=True, timeout=5)
+            return [line.split(":", 1)[1].strip() for line in out.splitlines()
+                    if line.strip().startswith("Chipset Model:")]
+    except Exception:
+        pass
+    return []
+
+
+def _onnx_diagnostics():
+    """Inspect the running Python environment, without loading a model or CUDA."""
+    result = {"status": "missing", "version": "", "providers": [], "error": ""}
+    try:
+        import onnxruntime as ort
+    except ModuleNotFoundError as exc:
+        if exc.name != "onnxruntime":
+            result.update(status="error", error=str(exc))
+    except Exception as exc:
+        result.update(status="error", error=str(exc))
+    else:
+        result.update(status="available", version=str(getattr(ort, "__version__", "")))
+        try:
+            result["providers"] = list(ort.get_available_providers())
+        except Exception as exc:
+            result.update(status="error", error=str(exc))
+    return result
+
+
+def _auto_tagger_diagnostics(modules):
+    """Read an existing Auto Tagger session; never create or warm up a model."""
+    result = {"state": "not_loaded", "requested": "", "active": "",
+              "providers": [], "error": ""}
+    module = modules.get("auto_tagger")
+    if module is None:
+        return result
+    result["state"] = "idle"
+    try:
+        result["requested"] = str(module.setting("provider", "Auto") or "Auto")
+        # _runtime_status() predicts a provider before loading. Only an actual
+        # existing session can establish the provider currently in use.
+        tagger = getattr(module, "_tagger", None)
+        session = getattr(tagger, "_session", None)
+        if session is not None:
+            providers = list(session.get_providers())
+            result.update(state="loaded", providers=providers,
+                          active=providers[0] if providers else "")
+    except Exception as exc:
+        result.update(state="error", error=str(exc))
+    return result
 
 
 def _version_key(value):
@@ -83,7 +162,7 @@ from core.ai_connection import public_connection
 
 class SettingsModule(Module):
     name = "Settings"
-    version = "1.5.2"
+    version = "1.6.0"
     icon = "\u2699"   # ⚙
     description = "Configure the hub and individual modules."
     show_in_tabs = False     # gear icon in topbar handles navigation
@@ -114,6 +193,7 @@ class SettingsModule(Module):
             "/api/system/info": self._api_system_info,
             "/api/settings/update/check": self._api_update_check,
             "/api/settings/update/status": self._api_update_status,
+            "/api/updates/status": self._api_notifications_status,
         }
 
     def routes_post(self):
@@ -128,6 +208,7 @@ class SettingsModule(Module):
             "/api/civitai/update": self._api_civitai_update,
             "/api/settings/import_package": self._api_import_package,
             "/api/settings/update/install": self._api_update_install,
+            "/api/updates/check": self._api_notifications_check,
             "/api/restart": self._api_restart,
         }
 
@@ -369,7 +450,8 @@ class SettingsModule(Module):
                 "description": getattr(source, "description", ""),
                 "order": getattr(source, "order", 100),
                 "show_in_tabs": getattr(source, "show_in_tabs", True),
-                "enabled": key in {"settings", "module_manager"} or self.hub.settings.is_module_enabled(key),
+                "enabled": key in {"settings", "module_manager"} or self.hub.settings.is_module_enabled(
+                    key, legacy_key=module_key_from_class(source if isinstance(source, type) else type(source))),
                 "protected": key in {"settings", "module_manager"},
                 "loaded": loaded_mod is not None,
                 "settings_schema": getattr(source, "settings_schema", {}),
@@ -377,7 +459,7 @@ class SettingsModule(Module):
             }
 
         for _folder, cls in available_module_classes():
-            key = module_key_from_class(cls)
+            key = module_runtime_key_from_class(cls)
             mod = loaded.get(key)
             add_module(key, mod or cls, mod)
 
@@ -436,10 +518,20 @@ class SettingsModule(Module):
             "civitai.verbose",
             "network.listen_lan", "network.share_network", "network.require_auth",
             "network.allow_remote_browse",
+            "updates.automatic_check",
         }
         if path not in allowed_paths:
             handler.respond_json({"error": "Setting cannot be modified through this endpoint"}, status=403); return
+        if path == "updates.automatic_check":
+            if not handler._is_loopback():
+                handler.respond_json({"error": "Update preferences are only available from localhost."}, status=403); return
+            if not isinstance(data.get("value"), bool):
+                handler.respond_json({"error": "Expected true or false."}, status=400); return
         self.hub.settings.set_path(path, data.get("value"))
+        if path == "updates.automatic_check" and data["value"]:
+            notifications = getattr(self.hub, "update_notifications", None)
+            if notifications:
+                notifications.start()
         if path == "civitai.verbose":
             self.hub.civitai.debug = bool(data.get("value"))
         handler.respond_json({"ok": True})
@@ -727,13 +819,38 @@ class SettingsModule(Module):
             return
         try:
             release = self._github_api_json("/releases/latest")
-            handler.respond_json(self._release_update_info(release))
+            info = self._release_update_info(release)
+            notifications = getattr(self.hub, "update_notifications", None)
+            if notifications:
+                notifications.remember("system", info)
+            handler.respond_json(info)
         except Exception as exc:
             handler.respond_json({"error": str(exc)}, status=502)
 
     def _set_github_update_status(self, **values):
         with self._github_update_lock:
             self._github_update_status.update(values)
+
+    def _api_notifications_status(self, handler, qs):
+        notifications = getattr(self.hub, "update_notifications", None)
+        if notifications is None:
+            handler.respond_json({"error": "Update notifications are unavailable."}, status=503)
+            return
+        payload = notifications.snapshot()
+        payload["can_check"] = handler._is_loopback()
+        handler.respond_json(payload)
+
+    def _api_notifications_check(self, handler, content_len, content_type):
+        if not handler._is_loopback():
+            handler.respond_json({"error": "Update checks are only available from localhost."}, status=403)
+            return
+        handler.read_body_json(content_len)
+        notifications = getattr(self.hub, "update_notifications", None)
+        if notifications is None:
+            handler.respond_json({"error": "Update notifications are unavailable."}, status=503)
+            return
+        started = notifications.start(force=True)
+        handler.respond_json({"ok": True, "started": started})
 
     def _api_update_status(self, handler, qs):
         if not handler._is_loopback():
@@ -896,6 +1013,7 @@ class SettingsModule(Module):
     }
     _IMPORT_BLOCKED_NAMES = {
         "settings.json", ".cyberhub.lock", "cyberdelia.db",
+        "update-notifications.json",
         "cyberdelia.db-wal", "cyberdelia.db-shm",
     }
     _IMPORT_BLOCKED_EXTS = (
@@ -1082,6 +1200,7 @@ class SettingsModule(Module):
             "repository": str(value.get("repository") or "")[:160],
             "publisher_type": str(value.get("publisher_type") or "official")[:40],
             "channel": "beta" if value.get("channel") == "beta" else "stable",
+            "fresh_install_only": value.get("fresh_install_only") is True,
         }
 
     def _validate_online_package_manifest(self, manifest, expected):
@@ -1137,6 +1256,13 @@ class SettingsModule(Module):
         try:
             with zipfile.ZipFile(zip_source) as zf:
                 manifest = self._package_manifest_from_zip(zf)
+                bundle_paths = self._strip_wrapper_folder([
+                    self._clean_zip_path(info.filename) for info in zf.infolist() if not info.is_dir()
+                ])
+                if "FULL-BUNDLE.json" in bundle_paths or (manifest and manifest.get("fresh_install_only")):
+                    raise ValueError(
+                        "This bundle is for a fresh installation. Extract it into a new folder; "
+                        "use the normal system/module update packages for an existing installation.")
                 if require_manifest:
                     self._validate_online_package_manifest(manifest, expected_package or {})
                 planned = self._plan_import_members(zf, filename)
@@ -1389,6 +1515,7 @@ class SettingsModule(Module):
             "status": "running",
             "version": getattr(self.hub, "VERSION", "dev"),
             "python": platform.python_version(),
+            "python_executable": sys.executable,
             "platform": platform.system(),
             "platform_release": platform.release(),
             "platform_version": platform.version(),
@@ -1485,33 +1612,12 @@ class SettingsModule(Module):
             info["storage_total"] = "?"
             info["storage_free"] = "?"
 
-        # GPU
-        gpu = ""
-        try:
-            if platform.system() == "Windows":
-                out = subprocess.check_output(
-                    ["wmic", "path", "win32_VideoController", "get", "name"],
-                    text=True, timeout=3)
-                lines = [l.strip() for l in out.strip().split("\n") if l.strip() and l.strip() != "Name"]
-                gpu = lines[0] if lines else ""
-            elif platform.system() == "Linux":
-                out = subprocess.check_output(["lspci"], text=True, timeout=3)
-                for line in out.split("\n"):
-                    if "VGA" in line or "3D controller" in line:
-                        gpu = line.split(":", 2)[-1].strip()
-                        break
-            elif platform.system() == "Darwin":
-                out = subprocess.check_output(
-                    ["system_profiler", "SPDisplaysDataType"],
-                    text=True, timeout=5)
-                for line in out.split("\n"):
-                    line = line.strip()
-                    if line.startswith("Chipset Model:"):
-                        gpu = line.split(":", 1)[1].strip()
-                        break
-        except Exception:
-            pass
-        info["gpu"] = gpu or "Not detected"
+        info["gpus"] = _system_gpus()
+        # Preserve the existing string field for older diagnostic consumers.
+        info["gpu"] = "; ".join(info["gpus"]) or "Not detected"
+        info["onnx_runtime"] = _onnx_diagnostics()
+        info["auto_tagger"] = _auto_tagger_diagnostics(
+            getattr(self.hub.registry, "modules", None) or {})
 
         # Hub — bind, port, uptime, modules
         info["bind"] = getattr(self.hub, "bind", "?")
@@ -1585,8 +1691,7 @@ class SettingsModule(Module):
 
         # Optional dependencies — useful when things fail on someone else's machine
         deps = {}
-        # Note: the Danbooru auto-tag runs onnxruntime-web (ort.min.js) in the
-        # browser, so there is no Python `onnxruntime` dependency to check here.
+        # Python ONNX Runtime is reported separately from Danbooru's browser assets.
         for name, pkg in [("Pillow", "PIL"), ("send2trash", "send2trash"),
                           ("numpy", "numpy"),
                           ("opencv", "cv2"), ("requests", "requests")]:
@@ -1934,11 +2039,26 @@ SETTINGS_BODY = r"""
         <div class="status-line" id="civitaiStatus"></div>
     </div>
 
+    <div class="settings-section" id="update-notifications">
+        <h2>Update notifications</h2>
+        <p class="desc">Checks release information for CyberHub and installed modules on GitHub. No images, database or settings are sent. Downloads, installation and restart remain manual.</p>
+        <div class="settings-row">
+            <div class="settings-label">Automatically check for updates<div class="desc">Off by default. When enabled, check at startup at most once per 24 hours. Turning this on also checks if due. Works offline using locally saved results.</div></div>
+            <label class="settings-toggle"><input type="checkbox" id="automaticUpdateChecks" onchange="saveUpdatePreference(this.checked)"><span class="slider"></span></label>
+        </div>
+        <div class="settings-row">
+            <div class="settings-label">Check system and module updates<div class="desc">Check now, even when automatic checks are disabled.</div></div>
+            <button class="action-btn" id="updateNotificationsCheck" onclick="checkAllUpdates()">Check now</button>
+        </div>
+        <div class="status-line" id="updateNotificationsStatus" role="status">No update check has been performed.</div>
+        <div id="updateNotificationsList"></div>
+    </div>
+
     <div class="settings-section" id="software-updates">
         <h2><span class="section-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg></span>CyberHub system updates</h2>
         <p class="desc">Updates Core, Settings and Module Manager together. For Gallery and other individual modules, <a class="help-link" href="/module_manager#module-updates">open module updates in Module Manager</a>.</p>
         <div class="settings-row">
-            <div class="settings-label">Check for CyberHub system updates<div class="desc">Only connects to the official CyberHub GitHub repository when you click this button. CyberHub never checks automatically.</div></div>
+            <div class="settings-label">Check for CyberHub system updates<div class="desc">Checks the official CyberHub release. Automatic notification checks are optional and disabled by default.</div></div>
             <button class="action-btn" id="githubUpdateCheckBtn" onclick="checkCyberHubUpdates()">Check for system updates</button>
         </div>
         <div class="status-line" id="githubUpdateStatus">No update check has been performed.</div>
@@ -2623,6 +2743,54 @@ function updateGalleryMaint(mods) {
     pollGalleryMaintenance(0);
 }
 
+window.hubRenderUpdateNotifications = function(data) {
+    document.getElementById('automaticUpdateChecks').checked = data.automatic_check;
+    document.getElementById('automaticUpdateChecks').disabled = data.can_check === false;
+    document.getElementById('updateNotificationsCheck')._checking = data.checking || data.can_check === false;
+    document.getElementById('updateNotificationsCheck').disabled = data.checking || data.can_check === false;
+    var dates = data.checked_at || {};
+    var checks = ['system', 'modules'].filter(function(key){return dates[key];}).map(function(key){
+        return (key === 'system' ? 'System' : 'Modules') + ': ' + new Date(dates[key]).toLocaleString();
+    });
+    var errors = Object.keys(data.errors || {}).map(function(key){return key + ': ' + data.errors[key];});
+    document.getElementById('updateNotificationsStatus').textContent = data.checking ? 'Checking release information…' :
+        (errors.length ? 'Could not complete check. ' + errors.join(' · ') + '. ' + (checks.length ? 'Showing last known results. ' : '') : '') +
+        (checks.length ? checks.join(' · ') + '. ' + (data.count ? data.count + ' update' + (data.count === 1 ? '' : 's') + ' available.' : 'No updates found in saved results.') : 'No successful check yet.');
+    var list = document.getElementById('updateNotificationsList');
+    list.replaceChildren();
+    (data.updates || []).forEach(function(item) {
+        var row = document.createElement('div'); row.className = 'settings-row';
+        var label = document.createElement('span');
+        label.textContent = item.name + ': ' + item.current_version + ' → ' + item.version +
+            (item.compatible ? '' : ' (requires CyberHub ' + item.minimum_hub_version + ')');
+        var link = document.createElement('a'); link.className = 'help-link';
+        link.href = item.type === 'hub' ? '/settings#software-updates' : '/module_manager#module-updates';
+        link.textContent = item.type === 'hub' ? 'View system update' : 'View module updates';
+        row.append(label, link); list.appendChild(row);
+    });
+};
+async function saveUpdatePreference(enabled) {
+    var el = document.getElementById('automaticUpdateChecks'); el.disabled = true;
+    try {
+        var response = await fetch('/api/settings/save_path', {method:'POST', headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({path:'updates.automatic_check', value:enabled})});
+        var data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not save preference');
+        await window.hubRefreshUpdateNotifications();
+    } catch(e) {el.checked = !enabled; document.getElementById('updateNotificationsStatus').textContent = e.message;}
+    finally {el.disabled = false;}
+}
+async function checkAllUpdates() {
+    var button = document.getElementById('updateNotificationsCheck'); button.disabled = true;
+    try {
+        var response = await fetch('/api/updates/check', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+        var data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not check updates');
+        await window.hubRefreshUpdateNotifications();
+    } catch(e) {document.getElementById('updateNotificationsStatus').textContent = e.message;}
+    finally {button.disabled = Boolean(button._checking);}
+}
+
 function loadAll() {
     Promise.all([
         fetch('/api/settings').then(function(r){return r.json()}),
@@ -2634,6 +2802,7 @@ function loadAll() {
         document.getElementById('hubTitle').value = s.title || 'CyberHub';
         document.getElementById('portInput').value = s.port || 8899;
         document.getElementById('themeSelect').value = s.theme || 'dark';
+        document.getElementById('automaticUpdateChecks').checked = (s.updates || {}).automatic_check === true;
 
         var net = s.network || {};
         var listenEl = document.getElementById('listenLanInput');
@@ -3013,7 +3182,8 @@ async function checkCyberHubUpdates() {
         var response = await fetch('/api/settings/update/check', { cache:'no-store' });
         var data = await updateResponseJson(response);
         renderCyberHubUpdate(data);
-        status.textContent = 'Checked ' + (data.checked_at ? new Date(data.checked_at).toLocaleString() : 'just now') + '. No automatic checks are enabled.';
+        status.textContent = 'Checked ' + (data.checked_at ? new Date(data.checked_at).toLocaleString() : 'just now') + '. Installation remains manual.';
+        if (window.hubRefreshUpdateNotifications) window.hubRefreshUpdateNotifications();
     } catch (e) {
         status.innerHTML = '<span class="import-summary err">Update check failed: ' + escHtml(e.message) + '</span>';
     } finally {
@@ -3199,9 +3369,34 @@ function loadDiagnostics(force) {
     });
 }
 
-/* Render four grouped sections of diagnostic info, stacked vertically. The grid
-   auto-fits at minmax(280px, 1fr) so on a wide screen they sit side-by-side and
-   on narrow ones they stack. */
+function diagnosticGPUs(d) {
+    return d.gpus && d.gpus.length ? d.gpus : [d.gpu || 'Not detected'];
+}
+
+/* Shared by the panel and copyable report to keep provider states consistent. */
+function diagnosticRuntimeRows(d) {
+    var rows = [], ort = d.onnx_runtime, tagger = d.auto_tagger;
+    if (ort) {
+        var version = ort.version || (ort.status === 'missing' ? 'Not installed' : 'Unknown version');
+        if (ort.status === 'error') version += ' (error)';
+        rows.push(['ONNX Runtime', version]);
+        rows.push(['Providers', (ort.providers || []).join(', ') || 'None reported']);
+        if (ort.error) rows.push(['ONNX error', ort.error]);
+    }
+    if (tagger) {
+        if (tagger.requested) rows.push(['Tagger requested', tagger.requested]);
+        var active = 'Module not loaded';
+        if (tagger.state === 'idle') active = 'No model loaded';
+        else if (tagger.state === 'error') active = 'Unable to read session';
+        else if (tagger.state === 'loaded') active = tagger.active || 'Unknown (loaded session)';
+        rows.push(['Tagger active', active]);
+        if ((tagger.providers || []).length) rows.push(['Tagger session', tagger.providers.join(', ')]);
+        if (tagger.error) rows.push(['Tagger error', tagger.error]);
+    }
+    return rows;
+}
+
+/* Render grouped diagnostic sections in the responsive grid. */
 function renderDiagnostics(d) {
     function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     function pctBar(pct) {
@@ -3217,6 +3412,7 @@ function renderDiagnostics(d) {
     var hub = '';
     hub += row('Version',    'v' + esc(d.version));
     hub += row('Python',     esc(d.python));
+    hub += row('Python path', esc(d.python_executable));
     hub += row('Bind',       esc(d.bind) + (d.port ? ':' + esc(d.port) : ''));
     hub += row('Uptime',     esc(d.uptime || '?'));
     hub += row('Modules',    esc(d.module_count) + ' loaded');
@@ -3232,7 +3428,10 @@ function renderDiagnostics(d) {
     sys += row('Hostname',   esc(d.hostname));
     sys += row('Arch',       esc(d.architecture));
     sys += row('CPU',        esc(d.cpu) + (d.cpu_cores ? ' (' + esc(d.cpu_cores) + ' cores)' : ''));
-    sys += row('GPU',        esc(d.gpu));
+    var gpus = diagnosticGPUs(d);
+    gpus.forEach(function(gpu, i) {
+        sys += row(gpus.length > 1 ? 'GPU ' + (i + 1) : 'GPU', esc(gpu));
+    });
     var ramStr = esc(d.ram_used || '') + (d.ram_used ? ' / ' : '') + esc(d.ram || '?');
     if (d.ram_pct != null) ramStr += pctBar(d.ram_pct);
     sys += row('RAM',        ramStr);
@@ -3286,6 +3485,13 @@ function renderDiagnostics(d) {
     }
     sections.push({ title: 'Optional deps', body: deps });
 
+    var runtime = '';
+    diagnosticRuntimeRows(d).forEach(function(item) { runtime += row(item[0], esc(item[1])); });
+    if (runtime) {
+        runtime += '<p class="hint">Available providers do not validate GPU inference. Run a small tagging job to test it. Danbooru uses a separate browser runtime.</p>';
+        sections.push({ title: 'ONNX / Auto Tagger', body: runtime });
+    }
+
     /* Render */
     var html = sections.map(function(s) {
         return '<div class="diag-section">' +
@@ -3306,6 +3512,7 @@ function copyDiagnostics() {
     lines.push('# Hub');
     lines.push('  Version:     v' + (d.version || '?'));
     lines.push('  Python:      ' + (d.python || '?'));
+    if (d.python_executable) lines.push('  Python path: ' + d.python_executable);
     lines.push('  Bind:        ' + (d.bind || '?') + ':' + (d.port || '?'));
     lines.push('  Uptime:      ' + (d.uptime || '?'));
     lines.push('  Modules:     ' + (d.module_count || 0) + ' loaded');
@@ -3317,7 +3524,10 @@ function copyDiagnostics() {
     lines.push('  Hostname:    ' + (d.hostname || '?'));
     lines.push('  Arch:        ' + (d.architecture || '?'));
     lines.push('  CPU:         ' + (d.cpu || '?') + (d.cpu_cores ? ' (' + d.cpu_cores + ' cores)' : ''));
-    lines.push('  GPU:         ' + (d.gpu || '?'));
+    var gpus = diagnosticGPUs(d);
+    gpus.forEach(function(gpu, i) {
+        lines.push('  ' + (gpus.length > 1 ? 'GPU ' + (i + 1) + ':' : 'GPU:').padEnd(13) + gpu);
+    });
     var ramLine = '  RAM:         ' + (d.ram || '?');
     if (d.ram_used) ramLine += ' (' + d.ram_used + ' used, ' + d.ram_pct + '%)';
     lines.push(ramLine);
@@ -3353,6 +3563,14 @@ function copyDiagnostics() {
         Object.keys(d.dependencies).forEach(function(n) {
             lines.push('  ' + n.padEnd(13) + d.dependencies[n]);
         });
+    }
+    var runtimeRows = diagnosticRuntimeRows(d);
+    if (runtimeRows.length) {
+        lines.push('');
+        lines.push('# ONNX / Auto Tagger');
+        runtimeRows.forEach(function(item) { lines.push('  ' + (item[0] + ':').padEnd(18) + item[1]); });
+        lines.push('  Available providers do not validate GPU inference; run a small tagging job.');
+        lines.push('  Danbooru uses a separate browser runtime.');
     }
     var txt = lines.join('\n');
     var btn = document.getElementById('diagCopyBtn');

@@ -17,6 +17,15 @@ RUN python -m pip install --no-cache-dir -r requirements.txt \
 
 COPY . .
 
+# Full bundles include optional modules. Install their requirements using the
+# same per-module files as native launchers; a minimal starter still works.
+RUN set -eu; \
+    for module_requirements in modules/*/requirements.txt; do \
+        if [ -f "$module_requirements" ]; then \
+            python -m pip install --no-cache-dir -r "$module_requirements"; \
+        fi; \
+    done
+
 # Keep first launch local and fast. A failed font download is non-fatal because
 # CyberHub can use the system fonts installed above.
 RUN python resources/fonts/download_fonts.py || true

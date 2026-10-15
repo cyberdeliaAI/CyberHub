@@ -244,6 +244,21 @@ Modules are loaded automatically from `modules/<name>/__init__.py`. Disabling on
 
 ## Modules
 
+### Update notifications
+
+Open **Settings → Update notifications** to check system and installed-module
+releases together. **Automatically check for updates** is off by default. If
+enabled, CyberHub checks at startup at most once per 24 hours per catalog;
+turning it on also checks if due. **Check now** performs an explicit check at
+any time. These requests only fetch release metadata from GitHub, not update ZIPs.
+
+A quiet count on the module menu links to the available updates. Results and
+check dates are saved locally, so they survive a restart and remain available
+offline. A failed check is identified separately from a successful check with
+no updates. No download, installation, restart or dependency installation happens
+automatically. Stable modules are not notified about beta releases unless the
+installed module is already beta. Compatibility requirements remain visible.
+
 ### Module Manager
 
 Module Manager controls the optional parts of CyberHub. The starter already
@@ -255,8 +270,9 @@ Module Manager is on the right.
 - **Official** shows stable modules maintained by Cyberdelia.
 - **Beta** shows modules still under active development.
 - **Community** is reserved for third-party modules accepted into the catalog.
-- **Check for module updates** is the only action that contacts the GitHub registry.
-  Opening CyberHub does not perform a check.
+- **Check for module updates** explicitly contacts the GitHub registry.
+  Opening CyberHub does not perform a check unless optional automatic update
+  notifications were enabled in Settings.
 - **Module updates** groups newer versions of installed modules above the filters,
   with a count, installed and available versions, and amber **Update module** buttons.
   This list includes Official, Beta and Community updates regardless of the selected
@@ -264,9 +280,9 @@ Module Manager is on the right.
   Modules awaiting an update appear here instead of being repeated in the list below.
 - Before a successful check, the page says **Not checked yet**. After a failed
   check, any earlier results remain visible with a warning. Returning to Module
-  Manager restores the last successful check during the current Hub session without
+  Manager restores the last successful saved catalog across Hub sessions without
   contacting GitHub. Installing or removing a module refreshes those saved results
-  locally; a new online check still requires the button.
+  locally; optional notification checks and the manual check buttons can refresh it online.
 - **Install module** and **Update module** download one verified module package, check its
   repository, size and SHA-256 checksum, and create a backup before replacing
   files.
@@ -1029,15 +1045,18 @@ any unsaved edits; use **Save AI connection** to apply them.
 
 **System diagnostics**
 
-<!-- SCREENSHOT (05-settings-diagnostics.png): Settings page with System diagnostics panel expanded, showing the five sections (Hub / System / Data, then Resources / Optional deps) in the compact diagnostics grid. RAM and Storage bars visible. Copy as text button at top right. -->
+<!-- SCREENSHOT (05-settings-diagnostics.png): Settings page with System diagnostics panel expanded, showing Hub / System / Data, then Resources / Optional deps / ONNX and Auto Tagger in the compact diagnostics grid. RAM and Storage bars visible. Copy as text button at top right. -->
 
 A diagnostic panel that's collapsed by default. Click to expand and the hub gathers:
 
-- Hub info (version, Python, bind/port, uptime, loaded modules)
-- System info (OS, hostname, CPU, GPU, RAM with usage bar, storage with usage bar)
+- Hub info (version, Python version and executable path, bind/port, uptime, loaded modules)
+- System info (OS, hostname, CPU, all detected GPUs, RAM with usage bar, storage with usage bar)
 - Data info (image count, folder count, library cards, attachments size, database size, thumbnails size)
 - Resources (what was loaded from `resources/` — Civitai models.json, Danbooru tag/auto-tag files, UI fonts, ONNX runtime — showing whether each is present and whether a Settings override is active)
 - Optional dependencies (Pillow, send2trash, numpy, opencv, requests)
+- ONNX / Auto Tagger (Python ONNX Runtime version, available execution providers, requested Auto Tagger provider and the active provider from its loaded model session, including CPU fallback)
+
+If Auto Tagger has no loaded model session, the active provider reads **No model loaded**. **Module not loaded** means Auto Tagger is unavailable in the running Hub, for example because it is disabled or not installed. Expanding diagnostics never loads a model, downloads packages or starts inference. Available providers alone do not establish working GPU inference; run a small tagging job and refresh diagnostics to inspect the loaded session. Missing or broken Python ONNX Runtime is reported separately from Danbooru's browser runtime files.
 
 **📋 Copy as text** copies everything as a plain-text report. Perfect for pasting into a bug report or support DM. It gives the recipient instant context about your install.
 

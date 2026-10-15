@@ -1,0 +1,14 @@
+# CyberHub Core Instructions
+
+Read [CYBERHUB-ARCHITECTURE.md](CYBERHUB-ARCHITECTURE.md) for the ecosystem contracts and known limitations, and [CONTRIBUTING.md](CONTRIBUTING.md) for repository conventions. These instructions supplement the parent workspace instructions.
+
+- Core entry points are `hub.py`, `core/__init__.py`, and `core/server.py`. Bundled system modules are `modules/settings/` and `modules/module_manager/`; both must remain available for configuration and repair.
+- Preserve `Module` routing signatures, discovery behavior, `Hub` helpers, settings defaults, shell/navigation behavior, and existing compatibility aliases. Inspect consumers in sibling module repositories before changing a shared interface.
+- Treat package/folder IDs, display names, runtime `key()` values, and class-derived enablement keys as separate identities. Consult the architecture identity table before changing loading, toggling, or Module Manager status. Do not silently rename keys to address the documented mismatch.
+- Preserve `resource_path()` versus `data_path()` semantics, `CYBERHUB_DATA_DIR`, existing native attachment locations, and shared database/metadata contracts. Inspect Gallery, Auto Tagger, and Library before changing persistence or file-serving behavior.
+- Preserve shared AI connection opt-in, legacy custom connections, credential masking, browser/Hub transport distinctions, and Captioner/Prompt Engineer fallbacks. Check both modules when changing `core/ai_connection.py` or Settings AI endpoints.
+- For installer changes, inspect Settings ZIP planning/validation and `core/module_store.py` together. Keep path restrictions, checksums, backups, ownership records, protected modules, restart requirements, and loopback restrictions. Online installation and manual import have different validation paths.
+- A Core system update must preserve independently installed modules. Starter contents and update contents differ; inspect package contents and catalog targets, not only version labels. Docker dependencies and code persistence differ from native startup.
+- Inspect `tests/` before selecting checks. Python suites cover AI connections, module menus, Module Manager, Settings layout, and Docker support; Node suites cover AI and Module Manager browser behavior. Review Docker tests for filesystem effects before running them.
+- With an existing suitable environment, test commands from this repository are `python -B -m unittest discover -s tests -v` and `node --test tests/*.test.cjs`. Select narrower suites when appropriate; temporary data fixtures and dependency checks come first. Do not install missing packages merely to make tests run.
+- For changes spanning modules, inspect their tests too. Gallery uses `CYBERHUB_CORE_PATH`; Prompt Engineer integration tests use `CYBERHUB_CORE` and `CYBERHUB_CAPTIONER`. Report skips separately from passes and distinguish mocked tests from live model, OS, or Docker verification.

@@ -7,19 +7,19 @@ cd /d "%~dp0"
 set PYTHON=
 if exist ".venv\Scripts\python.exe" goto venv_ready
 
-for %%V in (3.12 3.11 3.10 3.13) do (
+for %%V in (3.12 3.11 3.10 3.13 3.14) do (
     if not defined PYTHON (
         py -%%V -c "import sys" >nul 2>&1 && set "PYTHON=py -%%V"
     )
 )
 if not defined PYTHON (
-    where python >nul 2>&1 && python -c "import sys; raise SystemExit(0 if sys.version_info >= (3,10) and sys.version_info < (3,14) else 1)" >nul 2>&1 && set "PYTHON=python"
+    where python >nul 2>&1 && python -c "import sys; raise SystemExit(0 if sys.version_info >= (3,10) and sys.version_info < (3,15) else 1)" >nul 2>&1 && set "PYTHON=python"
 )
 if not defined PYTHON (
-    where py >nul 2>&1 && py -3 -c "import sys; raise SystemExit(0 if sys.version_info >= (3,10) and sys.version_info < (3,14) else 1)" >nul 2>&1 && set "PYTHON=py -3"
+    where py >nul 2>&1 && py -3 -c "import sys; raise SystemExit(0 if sys.version_info >= (3,10) and sys.version_info < (3,15) else 1)" >nul 2>&1 && set "PYTHON=py -3"
 )
 if not defined PYTHON (
-    echo [ERROR] Supported Python not found. Install Python 3.10, 3.11, 3.12 or 3.13 from https://www.python.org
+    echo [ERROR] Supported Python not found. Install Python 3.10, 3.11, 3.12, 3.13 or 3.14 from https://www.python.org
     pause
     exit /b 1
 )
@@ -29,7 +29,7 @@ echo [SETUP] Creating virtual environment...
 
 :venv_ready
 
-".venv\Scripts\python.exe" -c "import sys; raise SystemExit(0 if sys.version_info >= (3,10) and sys.version_info < (3,14) else 1)" >nul 2>&1
+".venv\Scripts\python.exe" -c "import sys; raise SystemExit(0 if sys.version_info >= (3,10) and sys.version_info < (3,15) else 1)" >nul 2>&1
 if errorlevel 1 goto bad_venv
 
 echo [SETUP] Using Python:
@@ -69,7 +69,7 @@ goto deps_ok
 :bad_venv
 echo.
 echo [ERROR] Existing .venv uses an unsupported Python version.
-echo [ERROR] CyberHub supports Python 3.10, 3.11, 3.12 or 3.13.
+echo [ERROR] CyberHub supports Python 3.10, 3.11, 3.12, 3.13 or 3.14.
 echo [ERROR] Recommended fix:
 echo         1. Install Python 3.12 or 3.11 from https://www.python.org
 echo         2. Delete the .venv folder inside this hub folder

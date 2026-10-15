@@ -15,6 +15,7 @@ __pycache__
 data
 settings.json
 installed-modules.json
+update-notifications.json*
 updates
 *.zip
 .DS_Store

@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "author": "Cyberdelia",
+  "ownership_confirmed_by": "project owner",
+  "confirmed_on": "2026-10-15",
+  "terms": "LICENSE.md",
+  "files": [
+    {
+      "path": "resources/guides/Illustrious_NoobAI_Prompting_Master_Guide.pdf",
+      "sha256": "d3cd58474e246d60f6234a7d45c833951b477b6e29dc316274c9ba15356991e6"
+    },
+    {
+      "path": "resources/guides/Pony_Prompting_Master_Guide.pdf",
+      "sha256": "e9f1bb545a4783912311f9e4146950bd9335a46691222e5756c689c5d8fb71f0"
+    }
+  ]
+}

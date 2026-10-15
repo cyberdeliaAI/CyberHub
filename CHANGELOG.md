@@ -1,5 +1,28 @@
 # Changelog
 
+## CyberHub 1.5.0 / Settings 1.6.0 / Module Manager 1.1.1 — 15 October 2026
+
+- Add a Full Bundle for fresh installations with all 16 official modules, their
+  standard assets, preserved beta labels and build provenance.
+- Prepare a GitHub Lite starter with Gallery 1.2.16 and a separate Core-only
+  system updater. The same Core serves Lite and the Civitai Full Bundle.
+- Include the owner's Civitai checkpoint lookup export dated 15 October 2026.
+- Add optional update notifications, disabled by default, with cached offline
+  results and manual installation. The checker uses published GitHub releases.
+- Expand diagnostics with all detected GPUs, the Python executable, Python ONNX
+  Runtime version/providers and Auto Tagger's existing session provider.
+- Fix enable/disable behavior and inventory identities for Amateur Photo,
+  Civitai Grabber, Meta Copy Tool and Prompt Engineer, preserving runtime IDs and
+  falling back to legacy class-derived enablement settings when needed.
+- Reject fresh-install bundles in ZIP import and include a marker that also
+  prevents older importers from treating the Full Bundle as a system update.
+- Accept Python 3.14 in native launchers and install optional-module requirements
+  in Docker builds. Native Windows/Linux and container verification remain separate.
+  Intel macOS Full Bundles require Python 3.10–3.13 because ONNX Runtime has no
+  Python 3.14 Intel macOS wheel; the macOS launcher detects this before installation.
+- Identify the exact Danbooru FP16 model and label vocabulary, include its MIT
+  text and the Real-ESRGAN BSD text, and attribute both prompting guides to Cyberdelia.
+
 ## CyberHub 1.4.2 / Module Manager 1.1.0 / Settings 1.5.2 — 28 September 2026
 
 - Group available updates for installed modules in a separate panel above the

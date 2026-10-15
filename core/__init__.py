@@ -87,6 +87,21 @@ def module_key_from_class(cls):
     return module_key_from_name(getattr(cls, "name", cls.__name__))
 
 
+def module_runtime_key_from_class(cls):
+    """Resolve stateless key() overrides without running a module constructor.
+
+    Existing modules use constant/name-based keys. Third-party modules whose
+    key requires initialized instance state keep the legacy class-key fallback.
+    """
+    try:
+        key = cls.key(object.__new__(cls))
+        if isinstance(key, str) and key.strip():
+            return key
+    except Exception:
+        pass
+    return module_key_from_class(cls)
+
+
 def discover_module_names():
     """List of subfolder names in modules/ that contain an __init__.py."""
     names = []
