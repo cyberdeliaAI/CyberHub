@@ -13,6 +13,10 @@ updated or removed individually from Module Manager.
 
 **Lite 1.5.0** contains Core, Settings 1.6.0, Module Manager 1.1.1 and Gallery
 1.2.16. A separate system updater preserves independently installed modules.
+
+**Core 1.5.1** is a small metadata correction for existing 1.5.0 Lite and Full
+installations. It fixes embedded Civitai resource lists and LoRA weights in
+Gallery and Viewer; Settings and Module Manager retain their versions.
 A **Full Bundle** with all 16 official modules is prepared separately for Civitai,
 including the two labeled beta modules. Lite and Full use the same Core and can
 use the same GitHub system updater; official module updates remain independent.
@@ -51,8 +55,11 @@ For a new installation, download
 and extract it to its own folder. It contains Core 1.5.0, Settings 1.6.0,
 Module Manager 1.1.1 and Gallery 1.2.16. Add optional modules through Module Manager.
 For an existing installation, use the separate
-[system update](https://github.com/cyberdeliaAI/CyberHub/releases/download/v1.5.0/cyberhub_update_v1.5.0.zip)
-or Settings → CyberHub system updates.
+[1.5.1 system patch](https://github.com/cyberdeliaAI/CyberHub/releases/download/v1.5.1/cyberhub_update_v1.5.1.zip)
+or Settings → CyberHub system updates. This small patch requires Core 1.5.0;
+older installations must first import the
+[1.5.0 system update](https://github.com/cyberdeliaAI/CyberHub/releases/download/v1.5.0/cyberhub_update_v1.5.0.zip).
+For a fresh installation, install Lite 1.5.0 above, then apply the 1.5.1 patch.
 
 - **Windows:** double-click `start.bat`.
 - **macOS:** open a terminal in the CyberHub folder and run `./start.sh`.
@@ -90,11 +97,11 @@ Downloads are tied to their declared GitHub
 Release repository and checked against a published SHA-256 digest. Existing
 files are backed up and a restart is requested after installation.
 
-For an offline system update, import **cyberhub_update_v1.4.2.zip** through
-**Settings -> Maintenance -> Import update or module ZIP**. This system package
-updates Core, Settings and Module Manager while preserving Gallery and other
-independently installed modules. The automatic download selected by the manual
-update check uses this same system package.
+For an offline update from 1.5.0, import **cyberhub_update_v1.5.1.zip** through
+**Settings -> Maintenance -> Import ZIP**, then restart CyberHub completely.
+This patch updates the shared metadata parser and Core version; it preserves
+Settings, Module Manager, Gallery, optional modules and model/data resources.
+The download selected by the manual update check uses this same small patch.
 Local `settings.json`, Gallery databases and downloaded models are not part of
 the release overwrite flow.
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## CyberHub 1.5.1 — 21 October 2026
+
+- Fix issue #5: keep embedded Civitai resource JSON intact when reading
+  A1111-style image metadata instead of treating its members as settings.
+- Preserve the explicit checkpoint and display all named LoRA resources with
+  their supplied weights, including negative, zero and unit weights. Full
+  resource data remains unchanged in Raw Metadata.
+- Handle nested JSON and escaped quotes without breaking quoted LoRA hashes
+  or the existing Civitai sidecar format. Gallery and Viewer share this fix;
+  no module update or database reindex is required for the corrected display.
+- Distribute a small system patch for existing Core 1.5.0 installations,
+  including Lite and Full. Settings stays at 1.6.0 and Module Manager at 1.1.1;
+  installed modules and bundled model/data resources are not replaced.
+
 ## CyberHub 1.5.0 / Settings 1.6.0 / Module Manager 1.1.1 — 15 October 2026
 
 - Add a Full Bundle for fresh installations with all 16 official modules, their

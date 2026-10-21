@@ -741,8 +741,9 @@ def _split_a1111_settings(s):
     Format: `Key: value, Key2: "value with, internal commas", Key3: value3`
     The old regex `([^,]+?)(?:,|$)` split on every comma and broke fields like
     `Lora hashes: "a: 1, b: 2"` into a truncated value plus a bogus 'b' key.
-    This hand-written tokenizer reads each value either until the next unquoted
-    comma, or — when the value starts with `"` — until the matching closing quote.
+    Quoted values retain internal commas and escaped quotes. JSON arrays/objects
+    are read as one value, including nested containers and quoted strings, so
+    Civitai resource members do not become separate settings.
     """
     out = {}
     i, n = 0, len(s)
@@ -768,10 +769,33 @@ def _split_a1111_settings(s):
             i += 1  # skip opening quote
             val_start = i
             while i < n and s[i] != '"':
-                i += 1
+                i += 2 if s[i] == "\\" and i + 1 < n else 1
             value = s[val_start:i]
             if i < n:
                 i += 1  # skip closing quote
+        elif i < n and s[i] in "[{":
+            val_start = i
+            stack = []
+            quoted = False
+            while i < n:
+                ch = s[i]
+                if quoted:
+                    if ch == "\\" and i + 1 < n:
+                        i += 2
+                        continue
+                    if ch == '"':
+                        quoted = False
+                elif ch == '"':
+                    quoted = True
+                elif ch in "[{":
+                    stack.append(ch)
+                elif ch in "]}":
+                    if stack and stack[-1] == ("{" if ch == "}" else "["):
+                        stack.pop()
+                elif ch == "," and not stack:
+                    break
+                i += 1
+            value = s[val_start:i].rstrip()
         else:
             val_start = i
             while i < n and s[i] != ",":
@@ -780,6 +804,48 @@ def _split_a1111_settings(s):
         if key:
             out[key] = value
     return out
+
+
+def _normalize_a1111_civitai_resources(settings):
+    """Expose embedded Civitai JSON as Model/LoRAs; keep full data in raw text."""
+    for key in ("Civitai resources", "civitaiResources"):
+        value = settings.get(key)
+        if not value:
+            continue
+        try:
+            resources = json.loads(value)
+        except (ValueError, TypeError):
+            continue
+        if not isinstance(resources, list):
+            continue
+        model = ""
+        loras = []
+        for item in resources:
+            if not isinstance(item, dict):
+                continue
+            kind = item.get("type")
+            if not isinstance(kind, str):
+                continue
+            names = [item.get(k) for k in ("modelName", "modelVersionName")]
+            names = [name.strip() for name in names if isinstance(name, str) and name.strip()]
+            if not names:
+                continue
+            if kind.lower() == "checkpoint" and not model:
+                # As in Civitai's sidecar format, prefer the checkpoint version.
+                model = names[-1]
+            elif kind.lower() == "lora":
+                weight = item.get("weight")
+                suffix = (f":{weight}" if isinstance(weight, (str, int, float))
+                          and not isinstance(weight, bool) and weight != "" else "")
+                loras.append(names[0] + suffix)
+        if model or loras:
+            if model and not settings.get("Model"):
+                settings["Model"] = model
+            if loras:
+                settings.setdefault("LoRAs", ", ".join(loras))
+            # Avoid rendering the resource JSON as a giant settings row. It is
+            # still preserved verbatim in result['raw'] / Raw Metadata.
+            del settings[key]
 
 # Keys Civitai emits in its key/value metadata blob (the `_meta.txt` sidecar the
 # grabber writes, or embedded). camelCase keys are the giveaway — A1111 never
@@ -939,6 +1005,7 @@ def parse_sd_parameters(raw):
     if settings_idx >= 0:
         sl = "\n".join(lines[settings_idx:])
         result["settings"] = _split_a1111_settings(sl)
+        _normalize_a1111_civitai_resources(result["settings"])
     return result
 
 def merge_png_meta(source_bytes, target_bytes):
