@@ -1,5 +1,23 @@
 # Changelog
 
+## CyberHub 1.5.2 — 13 November 2026
+
+- Merge #7: add a command-line Gallery folder for the current session while
+  preserving saved folders and their database identities. Session values are
+  never written to settings.json, including when another setting is saved.
+- Merge #8: reject unrecognized Host names without a valid token (421),
+  cross-origin POSTs (403), and non-empty text/plain or form-urlencoded POSTs
+  (415). Same-origin JSON/multipart requests, token-authenticated LAN clients
+  and non-browser clients without Origin headers retain their existing paths.
+- Custom host names used without a token, including some reverse proxies, must
+  be listed in network.allowed_hosts or CYBERHUB_ALLOWED_HOSTS. The blocked
+  request page explains how to configure this.
+- Publish a cumulative small Core update for existing 1.5.0/1.5.1 installations,
+  including the 1.5.1 metadata correction. Settings remains 1.6.0 and Module
+  Manager 1.1.1. Optional modules, data, models and starter bundles are preserved.
+- These fixes apply to the shared backend used by both web and standalone
+  editions. This release does not publish a new CyberHub Desktop application.
+
 ## CyberHub 1.5.1 — 21 October 2026
 
 - Fix issue #5: keep embedded Civitai resource JSON intact when reading

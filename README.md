@@ -55,11 +55,12 @@ For a new installation, download
 and extract it to its own folder. It contains Core 1.5.0, Settings 1.6.0,
 Module Manager 1.1.1 and Gallery 1.2.16. Add optional modules through Module Manager.
 For an existing installation, use the separate
-[1.5.1 system patch](https://github.com/cyberdeliaAI/CyberHub/releases/download/v1.5.1/cyberhub_update_v1.5.1.zip)
+[1.5.2 system patch](https://github.com/cyberdeliaAI/CyberHub/releases/download/v1.5.2/cyberhub_update_v1.5.2.zip)
 or Settings → CyberHub system updates. This small patch requires Core 1.5.0;
 older installations must first import the
 [1.5.0 system update](https://github.com/cyberdeliaAI/CyberHub/releases/download/v1.5.0/cyberhub_update_v1.5.0.zip).
-For a fresh installation, install Lite 1.5.0 above, then apply the 1.5.1 patch.
+For a fresh installation, install Lite 1.5.0 above, then apply the 1.5.2 patch.
+The patch also updates Core 1.5.1 and includes its metadata correction.
 
 - **Windows:** double-click `start.bat`.
 - **macOS:** open a terminal in the CyberHub folder and run `./start.sh`.
@@ -194,9 +195,9 @@ Normal use runs locally over `http://localhost`. Images and prompts remain on
 your machine. Optional LAN mode allows access from another device on your own
 trusted network and supports access-token protection.
 
-Websites open in your browser cannot use CyberHub through your browser. Without
-an access token, CyberHub only answers to IP addresses, `localhost` and this
-computer's own name, and it refuses changes sent from other websites. If you
+Core 1.5.2 checks Host headers and blocks cross-origin POST requests. Without
+a valid access token, browser requests must use an IP address, `localhost`, this
+computer's own name or an explicitly allowed name. If you
 reach CyberHub through another host name without a token (for example a reverse
 proxy or a NAS name with LAN authentication turned off), add that name to
 `network.allowed_hosts` in `settings.json`, or set `CYBERHUB_ALLOWED_HOSTS`
