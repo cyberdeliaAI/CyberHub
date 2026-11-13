@@ -11,14 +11,16 @@ just adds tabs to the topbar — that is the navigation.
 """
 
 import gzip as _gzip
+import ipaddress
 import json
 import secrets
 import mimetypes
 import os
+import socket
 import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse, urlsplit
 
 
 # ─── Settings ────────────────────────────────────────────────────────────────
@@ -35,6 +37,10 @@ DEFAULT_SETTINGS = {
         "require_auth": True,    # require an access token for non-loopback requests when listen_lan is on
         "auth_token": "",        # auto-generated on first LAN launch
         "allow_remote_browse": False,  # allow LAN clients to use the host filesystem folder picker
+        # Extra host names (for example "hub.example.lan") that may reach this hub
+        # without a token. IP addresses, localhost and this computer's own name
+        # are always accepted. Edit settings.json or set CYBERHUB_ALLOWED_HOSTS.
+        "allowed_hosts": [],
     },
     "civitai": {
         "models_path": "",
@@ -747,6 +753,135 @@ class HubHandler(SimpleHTTPRequestHandler):
             return auth[len("Bearer "):].strip()
         return ""
 
+    # ─── Request origin checks (DNS rebinding and cross-site requests) ──────
+    # Loopback requests skip the token, so a web page in a normal browser could
+    # otherwise reach the hub through DNS rebinding (a foreign host name that
+    # resolves to 127.0.0.1) or send cross-site POSTs. Requests that carry a
+    # valid token are not affected by the host check: a rebinding page never
+    # has the token, and the token cookie is never sent to a foreign name.
+    SIMPLE_BODY_TYPES = frozenset({"text/plain", "application/x-www-form-urlencoded"})
+
+    def _token_valid(self, parsed):
+        if not self.require_auth or not self.auth_token:
+            return False
+        supplied = self._extract_token(parsed)
+        return bool(supplied) and secrets.compare_digest(supplied, self.auth_token)
+
+    @staticmethod
+    def _host_name(value):
+        """Return the lower-case host name of a Host/Origin authority, or None if malformed."""
+        try:
+            parts = urlsplit("//" + (value or "").strip())
+            parts.port  # raises ValueError for a malformed port
+        except ValueError:
+            return None
+        name = (parts.hostname or "").rstrip(".")
+        return name or None
+
+    @staticmethod
+    def _is_ip_literal(name):
+        try:
+            ipaddress.ip_address(name.split("%", 1)[0])
+            return True
+        except ValueError:
+            return False
+
+    _own_host_names = None
+
+    @classmethod
+    def _builtin_host_names(cls):
+        """localhost and this computer's own names (computed once; getfqdn may hit DNS)."""
+        if cls._own_host_names is None:
+            names = {"localhost"}
+            try:
+                for value in (socket.gethostname(), socket.getfqdn()):
+                    value = (value or "").lower().rstrip(".")
+                    if value:
+                        short = value.split(".", 1)[0]
+                        names.update({value, short, short + ".local"})
+            except OSError:
+                pass
+            cls._own_host_names = frozenset(names)
+        return cls._own_host_names
+
+    def _configured_host_names(self):
+        configured = []
+        if self.settings is not None:
+            configured = self.settings.get_path("network.allowed_hosts", []) or []
+        if isinstance(configured, str):
+            configured = [configured]
+        configured = list(configured) + os.environ.get("CYBERHUB_ALLOWED_HOSTS", "").split(",")
+        return {str(item).strip().lower().rstrip(".") for item in configured if str(item).strip()}
+
+    def _host_allowed(self):
+        header = self.headers.get("Host")
+        if header is None:
+            return True  # HTTP/1.0 clients; browsers always send Host
+        name = self._host_name(header)
+        if not name:
+            return False
+        if self._is_ip_literal(name) or name == "localhost" or name.endswith(".localhost"):
+            return True
+        return name in self._builtin_host_names() or name in self._configured_host_names()
+
+    def _origin_allowed(self):
+        if self.headers.get("Sec-Fetch-Site", "").strip().lower() == "cross-site":
+            return False
+        origin = self.headers.get("Origin")
+        if origin is None:
+            return True  # not a browser, or an old one: token/loopback rules still apply
+        origin = origin.strip()
+        if not origin or origin.lower() == "null":
+            return False
+        parts = urlsplit(origin)
+        if parts.scheme not in ("http", "https") or not parts.netloc:
+            return False
+        host = (self.headers.get("Host") or "").strip().lower()
+        default = 443 if parts.scheme == "https" else 80
+        try:
+            origin_port = parts.port or default
+        except ValueError:
+            return False
+        own = urlsplit("//" + host)
+        try:
+            own_port = own.port or default
+        except ValueError:
+            return False
+        if parts.hostname and own.hostname and parts.hostname == own.hostname and origin_port == own_port:
+            return True
+        # A reverse proxy may rewrite Host; its public name must be configured explicitly.
+        return bool(parts.hostname) and parts.hostname.rstrip(".") in self._configured_host_names()
+
+    def _reject(self, status, message):
+        if urlparse(self.path).path.startswith("/api/"):
+            try: self.respond_json({"error": message}, status=status)
+            except Exception: pass
+            return
+        from html import escape
+        body = ("<!DOCTYPE html><html><head><meta charset=utf-8><title>CyberHub</title></head>"
+                f"<body style=\"font-family:system-ui;max-width:640px;margin:40px auto\"><h1>Request blocked</h1>"
+                f"<p>{escape(message)}</p></body></html>").encode("utf-8")
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", len(body))
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception:
+            pass
+
+    def _check_request_origin(self, parsed, state_changing):
+        """Return True if the request may continue; otherwise send 421/403 and return False."""
+        if not self._token_valid(parsed) and not self._host_allowed():
+            self._reject(421, "This CyberHub does not answer to the host name in the address bar. "
+                              "Use its IP address or localhost, or add the name to network.allowed_hosts "
+                              "in settings.json (or CYBERHUB_ALLOWED_HOSTS) and restart.")
+            return False
+        if state_changing and not self._origin_allowed():
+            self._reject(403, "Cross-origin request blocked.")
+            return False
+        return True
+
     def _check_auth(self, parsed):
         """Return True if the request is allowed to proceed.
 
@@ -834,6 +969,8 @@ class HubHandler(SimpleHTTPRequestHandler):
     # ─── Dispatch ────────────────────────────────────────────────────────────
     def do_GET(self):
         parsed = urlparse(self.path)
+        if not self._check_request_origin(parsed, state_changing=False):
+            return
         if not self._check_auth(parsed):
             return
         path = parsed.path
@@ -945,6 +1082,9 @@ class HubHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
+        if not self._check_request_origin(parsed, state_changing=True):
+            self.close_connection = True  # the body stays unread
+            return
         if not self._check_auth(parsed):
             return
         path = parsed.path
@@ -953,6 +1093,12 @@ class HubHandler(SimpleHTTPRequestHandler):
             content_len = int(self.headers.get("Content-Length", 0))
         except ValueError:
             content_len = 0
+        # Module endpoints read JSON or multipart bodies. The two other body types a
+        # cross-site page can send without a CORS preflight are never valid here.
+        if content_len > 0 and content_type.split(";", 1)[0].strip().lower() in self.SIMPLE_BODY_TYPES:
+            self.close_connection = True
+            self._reject(415, "Send JSON with Content-Type: application/json.")
+            return
 
         # Wrap rfile so we can tell whether the handler consumed the request body.
         # If we don't, an endpoint that ignores its body (e.g. an action handler that
