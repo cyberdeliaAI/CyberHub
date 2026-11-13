@@ -194,6 +194,14 @@ Normal use runs locally over `http://localhost`. Images and prompts remain on
 your machine. Optional LAN mode allows access from another device on your own
 trusted network and supports access-token protection.
 
+Websites open in your browser cannot use CyberHub through your browser. Without
+an access token, CyberHub only answers to IP addresses, `localhost` and this
+computer's own name, and it refuses changes sent from other websites. If you
+reach CyberHub through another host name without a token (for example a reverse
+proxy or a NAS name with LAN authentication turned off), add that name to
+`network.allowed_hosts` in `settings.json`, or set `CYBERHUB_ALLOWED_HOSTS`
+(comma-separated), and restart.
+
 ## License
 
 CyberHub's own code and protected assets are provided under the
