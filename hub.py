@@ -178,6 +178,34 @@ def load_modules(hub):
             print(traceback.format_exc())
 
 
+def gallery_session_folders(settings, folder):
+    """Return (absolute folder, Gallery folders for this session).
+
+    The CLI folder is added after the saved folders instead of replacing them.
+    Replacing would make every saved folder "unconfigured", and Gallery then
+    removes their favorites, collections and tags from the database. Saved
+    folders keep their order, so their Gallery names (DB identities) stay the
+    same. Raises FileNotFoundError when the folder does not exist.
+    """
+    abs_folder = os.path.abspath(folder)
+    if not os.path.isdir(abs_folder):
+        raise FileNotFoundError(abs_folder)
+    saved = list(settings.get_module_setting("gallery", "folders", []) or [])
+    if not saved:
+        # Gallery migrates the legacy single-folder key only when the list is
+        # empty; keep that folder configured for this session too.
+        legacy = settings.get_module_setting("gallery", "folder", "")
+        saved = [legacy] if legacy else []
+
+    def same_folder(path):
+        return os.path.normcase(os.path.normpath(os.path.abspath(path)))
+
+    target = same_folder(abs_folder)
+    if not any(same_folder(str(f).strip()) == target for f in saved if str(f or "").strip()):
+        saved.append(abs_folder)
+    return abs_folder, saved
+
+
 # ─── Network helpers ─────────────────────────────────────────────────────────
 
 def get_lan_ip():
@@ -232,7 +260,8 @@ def add_windows_firewall_rule(port):
 def main():
     p = argparse.ArgumentParser(description="CyberHub")
     p.add_argument("folder", nargs="?", default=None,
-                   help="Optional: image folder for the Gallery module (overrides settings)")
+                   help="Optional: extra Gallery image folder for this session only "
+                        "(saved folders are kept; settings.json is not changed)")
     p.add_argument("--port", "-p", type=int, default=None, help="Override server port")
     p.add_argument("--listen", action="store_true",
                    help="Listen on all interfaces (overrides settings)")
@@ -254,14 +283,16 @@ def main():
 
     settings = Settings(SETTINGS_PATH)
 
-    # Positional folder arg overrides gallery folder for this session
+    # Positional folder arg adds a Gallery folder for this session only. It is
+    # never written to settings.json and never replaces the saved folders.
     if args.folder:
-        abs_folder = os.path.abspath(args.folder)
-        if not os.path.isdir(abs_folder):
-            print(f"[ERROR] Folder not found: {abs_folder}")
+        try:
+            abs_folder, session_folders = gallery_session_folders(settings, args.folder)
+        except FileNotFoundError as e:
+            print(f"[ERROR] Folder not found: {e}")
             sys.exit(1)
-        settings.set_path("modules.gallery.folders", [abs_folder])
-        print(f"[HUB] Gallery folder (CLI override): {abs_folder}")
+        settings.set_session_value("modules.gallery.folders", session_folders)
+        print(f"[HUB] Gallery folder for this session (not saved): {abs_folder}")
 
     # Resolve effective values (CLI overrides settings for this session)
     port = args.port or int(settings.get("port", 8899))

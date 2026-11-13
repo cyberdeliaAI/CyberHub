@@ -50,6 +50,7 @@ class Settings:
         self.path = path
         self.lock = threading.Lock()
         self.data = json.loads(json.dumps(DEFAULT_SETTINGS))  # deep copy
+        self._session = {}  # dotted key -> value for this process only; never saved
         self._load()
 
     def _load(self):
@@ -95,8 +96,21 @@ class Settings:
             self.data[key] = value
         self.save()
 
+    # ─── Session-only values ─────────────────────────────────────────────────
+    def set_session_value(self, dotted, value):
+        """Use `value` for `dotted` in this process only; it is never saved.
+
+        Launch options such as the CLI image folder must not rewrite
+        settings.json, also not through a later save of another setting.
+        Reads through get_path() and get_module_setting() return this value.
+        """
+        with self.lock:
+            self._session[dotted] = json.loads(json.dumps(value))
+
     # ─── Nested key (e.g. network.listen_lan) ────────────────────────────────
     def get_path(self, dotted, default=None):
+        if dotted in self._session:
+            return self._session[dotted]
         node = self.data
         for part in dotted.split("."):
             if not isinstance(node, dict) or part not in node:
@@ -120,6 +134,9 @@ class Settings:
         return self.data.setdefault("modules", {}).get(module_key, {})
 
     def get_module_setting(self, module_key, key, default=None):
+        session_key = f"modules.{module_key}.{key}"
+        if session_key in self._session:
+            return self._session[session_key]
         return self.get_module(module_key).get(key, default)
 
     def set_module_setting(self, module_key, key, value):
